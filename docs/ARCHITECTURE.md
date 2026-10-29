@@ -139,4 +139,5 @@ docs/                     this file, UX, roadmap, decisions
   Android SDK (decision [0001](decisions/0001-skip-fuse.md)). Swift on Android calls
   the same generated UniFFI Swift as iOS, against an Android build of libzen_core.
   Both apps build on a Mac (Skip's convention); CI uses `macos-latest`. The Android
-  end-to-end test runs the shipped arm64 APK in Redroid on an arm64 Linux runner.
+  end-to-end test runs the shipped arm64 APK in Redroid on an arm64 Linux runner
+  (decision [0005](decisions/0005-ci-macos-and-redroid.md)).
