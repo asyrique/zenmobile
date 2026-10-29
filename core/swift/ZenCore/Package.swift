@@ -6,18 +6,12 @@
 // scripts/generate-swift-bindings.sh.
 //
 // Linking:
-// - Apple: ZenCoreRust.xcframework (scripts/build-core-ios.sh), a static lib.
-// - Android: lib/android/<abi>/libzen_core.so (scripts/build-core-android.sh).
-//   SwiftPM can't vary linker flags by architecture, so a build covers one
-//   ABI: arm64-v8a (phones, Apple silicon emulators) unless ZEN_ANDROID_ABI
-//   says otherwise (x86_64 for the CI emulator).
-// - Linux (tests): pass the library's directory with `-Xlinker -L<dir>`
-//   (see scripts/test-swift-linux.sh).
+// - Apple: ZenCoreRust.xcframework (scripts/build-core-apple.sh), a static lib.
+// - Android: lib/android/arm64-v8a/libzen_core.so (scripts/build-core-android.sh).
 import Foundation
 import PackageDescription
 
 let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
-let androidABI = Context.environment["ZEN_ANDROID_ABI"] ?? "arm64-v8a"
 
 var zenCoreDependencies: [Target.Dependency] = ["ZenCoreFFI"]
 var extraTargets: [Target] = []
@@ -43,8 +37,8 @@ let package = Package(
                 .swiftLanguageMode(.v5),
             ],
             linkerSettings: [
-                .linkedLibrary("zen_core", .when(platforms: [.linux, .android])),
-                .unsafeFlags(["-L\(packageDir)/lib/android/\(androidABI)"], .when(platforms: [.android])),
+                .linkedLibrary("zen_core", .when(platforms: [.android])),
+                .unsafeFlags(["-L\(packageDir)/lib/android/arm64-v8a"], .when(platforms: [.android])),
                 // What the Rust static library needs from the system on iOS.
                 .linkedLibrary("c++", .when(platforms: [.iOS, .macOS])),
                 .linkedFramework("Security", .when(platforms: [.iOS, .macOS])),

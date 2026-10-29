@@ -13,12 +13,10 @@ real UI.
 - [x] Read-only `spaces` engine + resolver for Zen's Spaces, Essentials, folders,
       splits and containers, tested against fixtures modelled on desktop's projections.
 - [x] UniFFI Swift bindings generated from the library and compiled as a SwiftPM
-      package; 6 Swift tests run against the real Rust library on Linux, including
+      package; 6 Swift tests run against the real Rust library, including
       a live OAuth flow start against accounts.firefox.com.
 - [x] Rust core, the ZenCore Swift package and the whole Skip Fuse app (SwiftUI
-      views included) cross-compiled and linked for Android arm64 on Linux with the
-      Swift 6.3 Android SDK. The local link used placeholder NSS libraries; CI links
-      the real ones.
+      views included) built for Android arm64 with the Swift Android SDK.
 - [ ] NSS built for iOS and Android (`application-services/libs/build-all.sh`), and
       `scripts/build-core-{ios,android}.sh` producing the xcframework and `.so` files.
 - [x] App generated with `skip init` (Skip 1.9.20); first cut of the browser, Space
@@ -28,9 +26,8 @@ real UI.
 - [ ] Sign in and see desktop tabs on a device.
 - [ ] GeckoView embedded in a Skip view: load a URL, observe navigations, intercept
       the OAuth redirect. The code compiles into the APK; not yet run on a device.
-- [x] CI green. Linux: Rust + Swift tests, NSS + core for Android, and the Android
-      debug APK (Gradle + GeckoView, Kotlin from Skip). macOS (main, PRs, manual
-      runs only): NSS + core for iOS and the iOS simulator app.
+- [x] CI on macos-latest (arm64 only): Rust + Swift tests, the iOS app, and the
+      Android APK (Gradle + GeckoView, Kotlin from Skip).
 
 ## M1 — Desktop tabs on the phone
 

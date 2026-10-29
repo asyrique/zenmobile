@@ -95,9 +95,11 @@ struct BottomBar: View {
     }
 }
 
-/// Shown when no tab is open.
+/// Shown when no tab is open. Browsing never needs an account: syncing with
+/// Firefox is offered once, can be put off, and lives in Settings after that.
 struct StartPage: View {
     @Environment(AppModel.self) var app
+    @AppStorage("syncPromptDismissed") var syncPromptDismissed = false
     let showSpaces: () -> Void
     let showAddressBar: () -> Void
 
@@ -107,26 +109,64 @@ struct StartPage: View {
             Text("Zen")
                 .font(.largeTitle.bold())
                 .accessibilityIdentifier("startTitle")
-            switch app.account {
-            case .signedOut, .signingIn:
-                Text("Sign in with your Firefox account to see what's open on your desktop.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                NavigationLink("Sign in") { SignInView() }
-                    .buttonStyle(.borderedProminent)
-            case .needsReauthentication:
-                Text("Your Firefox account needs you to sign in again.")
-                    .foregroundStyle(.secondary)
-                NavigationLink("Sign in again") { SignInView() }
-                    .buttonStyle(.borderedProminent)
-            case .signedIn:
+            Button("Search or enter address", action: showAddressBar)
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("startSearch")
+            if case .signedIn = app.account {
                 Button("Open a Space", action: showSpaces)
-                    .buttonStyle(.borderedProminent)
-                Button("Search or enter address", action: showAddressBar)
             }
             Spacer()
+            syncPrompt
         }
         .padding(32)
+    }
+
+    @ViewBuilder private var syncPrompt: some View {
+        switch app.account {
+        case .needsReauthentication:
+            SyncPromptCard(
+                message: "Your Firefox account needs you to sign in again to keep syncing.",
+                signInTitle: "Sign in again",
+                onDismiss: nil)
+        case .signedOut, .signingIn:
+            if !syncPromptDismissed {
+                SyncPromptCard(
+                    message: "Sign in with your Firefox account to see the tabs and Spaces open on your desktop. You can do this later in Settings.",
+                    signInTitle: "Sign in",
+                    onDismiss: { syncPromptDismissed = true })
+            }
+        case .signedIn:
+            EmptyView()
+        }
+    }
+}
+
+/// An optional invitation to sync, never a gate.
+struct SyncPromptCard: View {
+    let message: String
+    let signInTitle: String
+    let onDismiss: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Sync with Firefox").font(.headline)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            HStack {
+                NavigationLink(signInTitle) { SignInView() }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("syncPromptSignIn")
+                Spacer()
+                if let onDismiss {
+                    Button("Not now", action: onDismiss)
+                        .accessibilityIdentifier("syncPromptDismiss")
+                }
+            }
+        }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color.primary.opacity(0.08)))
+        .accessibilityIdentifier("syncPrompt")
     }
 }
 

@@ -3,8 +3,8 @@
 # libzen_core. Bindings are generated in library mode, so every component
 # linked into zen-core (fxa-client, tabs, zen-spaces, ...) is included.
 #
-# Usage: scripts/generate-swift-bindings.sh [path/to/libzen_core.{so,dylib,a}]
-# Default: core/target/debug/libzen_core.so (or .dylib on macOS), built first.
+# Usage: scripts/generate-swift-bindings.sh [path/to/libzen_core.dylib]
+# Default: core/target/debug/libzen_core.dylib, built first (source env.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,10 +14,7 @@ PKG="$CORE/swift/ZenCore"
 if [[ $# -ge 1 ]]; then
   LIB="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 else
-  case "$(uname)" in
-    Darwin) LIB="$CORE/target/debug/libzen_core.dylib" ;;
-    *) LIB="$CORE/target/debug/libzen_core.so" ;;
-  esac
+  LIB="$CORE/target/debug/libzen_core.dylib"
   (cd "$CORE" && cargo build -p zen-core)
 fi
 
@@ -36,7 +33,7 @@ cp "$OUT"/*.h "$GEN_FFI/"
 # crate's uniffi.toml chose: application-services puts all its components in
 # a single `MozillaRustComponents` module, our crates use `<crate>FFI`.
 # Headers are grouped per module name. Apple-only `use "Darwin"` lines are
-# dropped; they only matter for -fmodules-decluse, and break Linux/Android.
+# dropped; they only matter for -fmodules-decluse, and break Android builds.
 python3 - "$OUT" "$GEN_FFI/module.modulemap" <<'PY'
 import collections, pathlib, re, sys
 out, dest = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])

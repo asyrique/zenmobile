@@ -27,8 +27,7 @@ unaffected (UniFFI also emits Kotlin), so only UI code is at risk.
 
 ## Consequences
 
-- Full app builds (both platforms) need macOS + Xcode. Linux can build and test the
-  Rust core, compile and run the Swift package, and cross-compile Swift for Android.
+- App builds for both platforms happen on a Mac (CI: `macos-latest`), as Skip intends.
 - The browser surface (web view, gestures, toolbar animation) is platform-specific
   regardless, behind a small `BrowserEngine` protocol.
 - App size grows by the Swift runtime on Android, on top of GeckoView.

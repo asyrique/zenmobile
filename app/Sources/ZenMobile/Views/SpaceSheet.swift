@@ -173,8 +173,11 @@ struct SpacesEmptyState: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Sign in to see your Spaces")
+                Text("Your Zen Spaces live here")
                     .font(.title2.bold())
+                Text("Sign in with your Firefox account in Settings to bring over the Spaces, Essentials and pinned tabs from Zen desktop.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(32)

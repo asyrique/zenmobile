@@ -33,7 +33,7 @@ struct AccountView: View {
 
     var body: some View {
         Form {
-            Section("Firefox account") {
+            Section {
                 switch app.account {
                 case let .signedIn(email):
                     Text(email ?? "Signed in")
@@ -44,7 +44,12 @@ struct AccountView: View {
                     NavigationLink("Sign in again") { SignInView() }
                 case .signedOut, .signingIn:
                     NavigationLink("Sign in") { SignInView() }
+                        .accessibilityIdentifier("settingsSignIn")
                 }
+            } header: {
+                Text("Firefox account")
+            } footer: {
+                Text("Optional. Signing in syncs your open tabs and Zen Spaces with Zen desktop; everything else works without it.")
             }
             if let error = app.lastSyncError {
                 Section("Last sync") {

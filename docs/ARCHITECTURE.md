@@ -50,8 +50,7 @@ Costs we accept:
 
 - **NSS.** application-services' crypto (`rc_crypto`) wraps NSS. It must be built
   per target with `application-services/libs/build-all.sh {ios,android}` and
-  linked statically. On Linux dev machines the system `libnss3` works for tests
-  (`scripts/env-linux.sh`).
+  linked statically (`scripts/build-nss.sh desktop|ios|android`).
 - **Pinned git dependency.** The crates aren't on crates.io. We pin one rev in
   `core/Cargo.toml` and must copy its `[patch.crates-io]` (a uniffi fork).
 
@@ -126,8 +125,8 @@ core/                     Rust workspace
   swift/ZenCore/          SwiftPM package wrapping the generated bindings
 app/                      Skip Fuse app (SwiftUI → iOS + Android), from `skip init`
   Sources/ZenMobile/      Model/ (AppModel, BrowserModel), Views/, Web/ (WKWebView | GeckoView)
-scripts/                  NSS, core builds per platform, bindings, Linux test runner
-.github/workflows/        CI: Linux (core, Android) + macOS (iOS app, APK)
+scripts/                  NSS, core builds per platform, bindings, Swift tests
+.github/workflows/        CI: macOS (everything) + arm64 Linux (Android E2E in Redroid)
 docs/                     this file, UX, roadmap, decisions
 ```
 
@@ -139,6 +138,5 @@ docs/                     this file, UX, roadmap, decisions
 - **Skip Fuse** compiles our Swift natively for Android with the official Swift
   Android SDK (decision [0001](decisions/0001-skip-fuse.md)). Swift on Android calls
   the same generated UniFFI Swift as iOS, against an Android build of libzen_core.
-  iOS builds need macOS + Xcode. Android builds entirely on Linux: Skip's Linux CLI
-  cross-compiles the Swift, and its Gradle build runs with a stand-in for Apple's
-  `xcrun` (`scripts/ci/xcrun-shim`), so CI keeps Android off the macOS runner.
+  Both apps build on a Mac (Skip's convention); CI uses `macos-latest`. The Android
+  end-to-end test runs the shipped arm64 APK in Redroid on an arm64 Linux runner.

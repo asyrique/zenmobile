@@ -48,13 +48,13 @@ jobs:
           scripts/build-nss.sh desktop
       - name: Rust tests
         run: |
-          . scripts/env-macos.sh
+          . scripts/env.sh
           cd core
           cargo test --workspace
       - name: Swift tests
         env:
           ZEN_NETWORK_TESTS: "1"
-        run: scripts/test-swift-macos.sh
+        run: scripts/test-swift.sh
       - uses: actions/upload-artifact@v4
         with:
           name: zencore-bindings
@@ -93,7 +93,7 @@ jobs:
           brew install ninja
           scripts/build-nss.sh ios
       - name: Build ZenCoreRust.xcframework
-        run: scripts/build-core-ios.sh ios ios-sim
+        run: scripts/build-core-apple.sh ios ios-sim
       - uses: actions/download-artifact@v4
         with:
           name: zencore-bindings
@@ -172,7 +172,7 @@ jobs:
           brew install ninja
           scripts/build-nss.sh android
       - name: Build libzen_core.so
-        run: scripts/build-core-android.sh arm64-v8a
+        run: scripts/build-core-android.sh
       - uses: actions/download-artifact@v4
         with:
           name: zencore-bindings

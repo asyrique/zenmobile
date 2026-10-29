@@ -8,9 +8,17 @@ struct DesktopTabsView: View {
 
     var body: some View {
         List {
-            if app.desktopTabs.isEmpty {
-                Text(app.isSyncing ? "Syncing…" : "No tabs from other devices yet.")
-                    .foregroundStyle(.secondary)
+            if case .signedIn = app.account {
+                if app.desktopTabs.isEmpty {
+                    Text(app.isSyncing ? "Syncing…" : "No tabs from other devices yet.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section {
+                    Text("Sign in with your Firefox account to see the tabs open on your other devices.")
+                        .foregroundStyle(.secondary)
+                    NavigationLink("Sign in") { SignInView() }
+                }
             }
             ForEach(app.desktopTabs, id: \.clientId) { device in
                 Section(device.clientName) {

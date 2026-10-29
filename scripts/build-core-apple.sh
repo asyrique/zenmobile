@@ -4,7 +4,7 @@
 # statically, so each archive is self-contained apart from system libraries
 # (declared in ZenCore's Package.swift). arm64 only.
 #
-# Usage: scripts/build-core-ios.sh [slice...]
+# Usage: scripts/build-core-apple.sh [slice...]
 #   slices: ios (devices), ios-sim (Apple silicon simulators), macos (for
 #   running the Swift tests on a Mac). Default: ios ios-sim.
 # Needs: macOS + Xcode, NSS from `scripts/build-nss.sh ios` (and `desktop`
@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LIBS="$ROOT/.build-deps/application-services/libs"
 NSS_IOS="${NSS_IOS_DIR:-$LIBS/ios}"
-NSS_MACOS="${NSS_MACOS_DIR:-$LIBS/desktop/darwin/nss}"
+NSS_MACOS="${NSS_MACOS_DIR:-$LIBS/desktop/darwin-aarch64/nss}"
 PROFILE="${CARGO_PROFILE:-release}"
 OUT_DIR="$PROFILE"; [[ "$PROFILE" == "dev" ]] && OUT_DIR=debug
 export IPHONEOS_DEPLOYMENT_TARGET=17.0 MACOSX_DEPLOYMENT_TARGET=14.0

@@ -32,23 +32,23 @@ set `zen.spaces-sync.normal-tabs` to `true`.
 
 ## Building
 
-| What | Where | Command |
-|---|---|---|
-| Rust tests | Linux/macOS | `. scripts/env-linux.sh && cd core && cargo test --workspace` (Linux uses the system `libnss3`) |
-| Swift bindings + tests | Linux | `scripts/test-swift-linux.sh` (needs a swift.org toolchain) |
-| NSS for mobile | Linux (Android), macOS (iOS) | `scripts/build-nss.sh android` / `ios` |
-| Core for Android | Linux/macOS | `scripts/build-core-android.sh` |
-| Core for iOS | macOS | `scripts/build-core-ios.sh` |
-| App | macOS + Xcode | `scripts/generate-swift-bindings.sh`, then open `app/Project.xcworkspace` |
+Everything builds on a Mac with Xcode, Rust and [Skip](https://skip.dev) (`brew install skiptools/skip/skip`).
 
-CI (`.github/workflows/ci.yml`) runs all of it on `macos-latest` (Apple silicon), building
-arm64 only: the Rust and Swift tests, the iOS app and its end-to-end test on a simulator,
-and the Android APK. The Android end-to-end test installs that same APK, unmodified, on
-arm64 Android running in [Redroid](https://github.com/remote-android/redroid-doc) (Android
-as a container) on an `ubuntu-24.04-arm` runner. GitHub's runners can't run the Android
-emulator, but Redroid shares the host kernel, so arm64 apps run natively. The Linux scripts
-(`scripts/env-linux.sh`, `scripts/test-swift-linux.sh`, `scripts/ci/*-linux.sh`,
-`scripts/ci/xcrun-shim`) remain for developing on Linux.
+| What | Command |
+|---|---|
+| NSS (once per platform) | `scripts/build-nss.sh desktop`, `ios`, `android` (needs `gyp-next` and `ninja`) |
+| Rust tests | `. scripts/env.sh && (cd core && cargo test --workspace)` |
+| Swift bindings + tests | `scripts/test-swift.sh` |
+| Core for iOS | `scripts/build-core-apple.sh` |
+| Core for Android | `scripts/build-core-android.sh` (needs `ANDROID_NDK_HOME`) |
+| App | `scripts/generate-swift-bindings.sh`, then open `app/Project.xcworkspace` |
+
+CI (`.github/workflows/ci.yml`) runs all of it on `macos-latest`, arm64 only: the Rust and
+Swift tests, the iOS app and its end-to-end test on a simulator, and the Android APK. The
+Android end-to-end test installs that same APK, unmodified, on arm64 Android running in
+[Redroid](https://github.com/remote-android/redroid-doc) (Android as a container) on an
+`ubuntu-24.04-arm` runner. GitHub's runners can't run the Android emulator, but Redroid
+shares the host kernel, so arm64 apps run natively.
 
 ### End-to-end tests
 
