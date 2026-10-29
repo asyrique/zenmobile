@@ -11,8 +11,10 @@ final class BrowsingUITests: XCTestCase {
     private let app = XCUIApplication()
     private var step = 0
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
-    private var url: String { environment["ZEN_E2E_URL"] ?? "https://example.com" }
-    private var title: String { environment["ZEN_E2E_TITLE"] ?? "Example Domain" }
+    // Defaults match the page CI serves from scripts/ci/e2e-site.
+    private var url: String { environment["ZEN_E2E_URL"] ?? "http://127.0.0.1:8765/" }
+    private var title: String { environment["ZEN_E2E_TITLE"] ?? "Zen E2E" }
+    private var heading: String { environment["ZEN_E2E_HEADING"] ?? "Hello from Zen" }
 
     override func setUp() {
         continueAfterFailure = false
@@ -62,7 +64,7 @@ final class BrowsingUITests: XCTestCase {
         element("addressGo").tap()
 
         // WebKit exposes page content to accessibility: check it rendered.
-        waitFor(app.webViews.staticTexts[title], timeout: 60)
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
         screenshot("page")
 
         // The title travels WKWebView → navigation delegate → model → tab card.

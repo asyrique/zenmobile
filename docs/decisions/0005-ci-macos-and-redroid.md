@@ -39,10 +39,12 @@ with screenshots in the CI run. Constraints:
    (`scripts/ci/run-android-e2e.sh`). The runner's kernel ships the Binder module Redroid
    needs.
 3. **Both platforms run the same native UI test.** The test launches the app, opens the
-   address bar, loads `https://example.com`, waits for the page, checks the page title
-   reaches the tab switcher, and opens the Space sheet. It drives the app through SwiftUI
-   `accessibilityIdentifier`s, which Skip exposes to Android as Compose test tags /
-   resource ids. Tooling: XCUITest on iOS (`app/Darwin/UITests`), UiAutomator on Android
+   address bar, loads a local test page, waits for it, checks the page title reaches
+   the tab switcher, and opens the Space sheet. The job serves the page from
+   `scripts/ci/e2e-site` (at `127.0.0.1` for the simulator, at Docker's bridge
+   `172.17.0.1` for Redroid), so the test doesn't depend on a third-party site. It drives
+   the app through SwiftUI `accessibilityIdentifier`s, which Skip exposes to Android as
+   Compose test tags / resource ids. Tooling: XCUITest on iOS (`app/Darwin/UITests`), UiAutomator on Android
    (`app/Android/app/src/androidTest`).
 4. **Screenshots appear inline in the run summary.** The tests save a PNG per step. A
    final job commits them to the `ci-screenshots` branch (one folder per run, newest 30

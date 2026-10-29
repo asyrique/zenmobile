@@ -21,8 +21,8 @@ adb install -r -g "$TEST_APK"
 # adb shell hands its arguments to the device's shell as one string, so
 # values with spaces need quoting for that shell too.
 adb shell am instrument -w -r \
-  -e url "'${E2E_URL:-https://example.com}'" \
-  -e title "'${E2E_TITLE:-Example Domain}'" \
+  -e url "'${E2E_URL:-http://127.0.0.1:8765/}'" \
+  -e title "'${E2E_TITLE:-Zen E2E}'" \
   "$TEST_ID/androidx.test.runner.AndroidJUnitRunner" | tee "$OUT/instrumentation.txt"
 
 adb pull "/sdcard/Android/data/$APP_ID/files/screenshots/." "$OUT/screenshots/" || true

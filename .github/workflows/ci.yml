@@ -101,6 +101,8 @@ jobs:
       - uses: skiptools/actions/setup-skip@v1
         with:
           run-doctor: "false"
+      - name: Serve the end-to-end test page
+        run: python3 -m http.server 8765 --bind 127.0.0.1 --directory scripts/ci/e2e-site > /dev/null 2>&1 &
       - name: Build and test iOS app (simulator)
         working-directory: app
         env:
@@ -241,7 +243,13 @@ jobs:
           path: apk
       - name: Start Android (Redroid)
         run: scripts/ci/start-redroid.sh
+      - name: Serve the end-to-end test page
+        run: python3 -m http.server 8765 --bind 0.0.0.0 --directory scripts/ci/e2e-site > /dev/null 2>&1 &
       - name: End-to-end browsing test
+        env:
+          # Redroid reaches the runner through Docker's bridge.
+          E2E_URL: http://172.17.0.1:8765/
+          E2E_TITLE: Zen E2E
         run: |
           APP_APK="$(ls apk/*.apk | grep -v androidTest | head -1)"
           scripts/ci/run-android-e2e.sh "$APP_APK" apk/e2e-androidTest.apk build/e2e-android

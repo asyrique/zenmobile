@@ -24,8 +24,8 @@ import org.junit.runner.RunWith
  * of each step land in the app's external files dir, under screenshots/,
  * for CI to pull.
  *
- * Arguments (am instrument -e): url (default https://example.com) and
- * title (the page title to expect, default "Example Domain").
+ * Arguments (am instrument -e): url and title (the page title to expect).
+ * CI serves scripts/ci/e2e-site and passes its address.
  */
 @RunWith(AndroidJUnit4::class)
 class BrowsingTest {
@@ -33,8 +33,8 @@ class BrowsingTest {
     private val device = UiDevice.getInstance(instrumentation)
     private val context = instrumentation.targetContext
     private val args = InstrumentationRegistry.getArguments()
-    private val url = args.getString("url") ?: "https://example.com"
-    private val title = args.getString("title") ?: "Example Domain"
+    private val url = args.getString("url") ?: "http://127.0.0.1:8765/"
+    private val title = args.getString("title") ?: "Zen E2E"
     private val screenshots = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
     private var step = 0
 

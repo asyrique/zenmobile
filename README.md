@@ -52,9 +52,9 @@ shares the host kernel, so arm64 apps run natively.
 
 ### End-to-end tests
 
-Both platforms run the same native UI test: launch the app, open the address bar, load
-`https://example.com`, check the page's title reaches the tab switcher, then open the
-Space sheet. A screenshot is taken at each step.
+Both platforms run the same native UI test: launch the app, open the address bar, load a
+test page CI serves locally (`scripts/ci/e2e-site`), check the page's title reaches the tab
+switcher, then open the Space sheet. A screenshot is taken at each step.
 
 - Android: `app/Android/app/src/androidTest/.../BrowsingTest.kt` (UiAutomator), run with
   `scripts/ci/start-redroid.sh` and `scripts/ci/run-android-e2e.sh`.
