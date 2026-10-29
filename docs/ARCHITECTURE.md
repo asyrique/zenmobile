@@ -139,6 +139,6 @@ docs/                     this file, UX, roadmap, decisions
 - **Skip Fuse** compiles our Swift natively for Android with the official Swift
   Android SDK (decision [0001](decisions/0001-skip-fuse.md)). Swift on Android calls
   the same generated UniFFI Swift as iOS, against an Android build of libzen_core.
-  Full Skip app builds need macOS + Xcode. Linux can build and test the core and the
-  Swift package, and cross-compile the app's Swift for Android with Skip's Linux CLI.
-  The Gradle/Kotlin half and iOS need macOS (CI).
+  iOS builds need macOS + Xcode. Android builds entirely on Linux: Skip's Linux CLI
+  cross-compiles the Swift, and its Gradle build runs with a stand-in for Apple's
+  `xcrun` (`scripts/ci/xcrun-shim`), so CI keeps Android off the macOS runner.

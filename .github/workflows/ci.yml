@@ -55,10 +55,12 @@ jobs:
             core/swift/ZenCore/Sources/ZenCoreFFI/include
           if-no-files-found: error
 
-  # NSS and the Rust core for Android, then the app's Swift (including
-  # SwiftUI-on-Android via Skip Fuse) cross-compiled and linked for arm64.
+  # NSS and the Rust core for Android, the app's Swift (SwiftUI-on-Android
+  # via Skip Fuse) cross-compiled for arm64, then the APK: Skip transpiles
+  # the Kotlin side and Gradle pulls in GeckoView. All on Linux; Skip's
+  # Gradle build only needs a stand-in for Apple's xcrun.
   android:
-    name: Android core + Swift (Linux)
+    name: Android (Linux)
     runs-on: ubuntu-24.04
     needs: core
     steps:
@@ -108,6 +110,24 @@ jobs:
             --swift "$(which swift)" \
             --sdk "$SWIFT_ANDROID_SDK_BUNDLE" \
             --ndk "$ANDROID_NDK_HOME"
+      - name: Install Android platform
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.2" "build-tools;37.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+      - name: Build APK
+        working-directory: app
+        run: |
+          export PATH="$GITHUB_WORKSPACE/scripts/ci/xcrun-shim:$PATH"
+          skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/skip-export/*.apk
+          if-no-files-found: error
 
   # The iOS app for the simulator. macOS minutes cost several times Linux
   # ones, so this runs only for main, pull requests and manual runs, and

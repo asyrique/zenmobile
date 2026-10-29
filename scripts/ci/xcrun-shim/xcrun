@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Linux stand-in for Apple's xcrun, so Skip's Gradle build (whose
+# settings.gradle.kts runs `skip plugin --prebuild`) works on a Linux runner.
+# `xcrun <tool> ...` runs <tool> from PATH.
+while [[ "${1:-}" == --* || "${1:-}" == -sdk ]]; do
+  case "$1" in
+    --find|-f) shift; command -v "$1"; exit $? ;;
+    --sdk|-sdk|--toolchain) shift 2 ;;
+    *) shift ;;
+  esac
+done
+# Skip's prebuild compiles the package for iOS only to run its transpiler
+# plugin; on Linux `skip export` has already transpiled, so skip it.
+if [[ "$*" == *"-apple-"* ]]; then
+  echo "xcrun shim: skipping Apple-only step: $*" >&2
+  exit 0
+fi
+exec "$@"

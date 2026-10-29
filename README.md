@@ -41,8 +41,9 @@ set `zen.spaces-sync.normal-tabs` to `true`.
 | Core for iOS | macOS | `scripts/build-core-ios.sh` |
 | App | macOS + Xcode | `scripts/generate-swift-bindings.sh`, then open `app/Project.xcworkspace` |
 
-CI (`.github/workflows/ci.yml`) runs all of it: Linux for the core and the Android
-Swift cross-compile, and a macOS runner for the iOS simulator build and the Android APK.
+CI (`.github/workflows/ci.yml`) runs all of it. Everything Android, including the APK,
+runs on Linux. The iOS simulator build needs the macOS runner, which costs more, so it
+only runs for `main`, pull requests and manual runs.
 
 ## Caveats
 

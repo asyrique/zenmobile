@@ -17,6 +17,9 @@ if [[ ! -x "$DEST/usr/bin/swift" ]]; then
 fi
 export PATH="$DEST/usr/bin:$PATH"
 [[ -n "${GITHUB_PATH:-}" ]] && echo "$DEST/usr/bin" >> "$GITHUB_PATH"
+# Skip finds toolchains where swiftly installs them.
+mkdir -p "$HOME/.local/share/swiftly/toolchains"
+ln -sfn "$DEST" "$HOME/.local/share/swiftly/toolchains/$VERSION"
 swift --version
 
 if [[ "${1:-}" == "--android" ]]; then
