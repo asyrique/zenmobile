@@ -94,3 +94,10 @@ android {
         }
     }
 }
+
+dependencies {
+    // End-to-end tests (src/androidTest), run against an emulator in CI.
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+}

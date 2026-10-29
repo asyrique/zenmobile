@@ -55,25 +55,44 @@ jobs:
             core/swift/ZenCore/Sources/ZenCoreFFI/include
           if-no-files-found: error
 
-  # NSS and the Rust core for Android, the app's Swift (SwiftUI-on-Android
-  # via Skip Fuse) cross-compiled for arm64, then the APK: Skip transpiles
-  # the Kotlin side and Gradle pulls in GeckoView. All on Linux; Skip's
-  # Gradle build only needs a stand-in for Apple's xcrun.
+  # NSS and the Rust core for Android, then the APK: Skip compiles the app's
+  # Swift (SwiftUI-on-Android via Skip Fuse), transpiles the Kotlin side and
+  # Gradle pulls in GeckoView. All on Linux; Skip's Gradle build only needs a
+  # stand-in for Apple's xcrun. arm64 is the build for phones; x86_64 is the
+  # build the emulator can run, and runs the end-to-end browsing test.
   android:
-    name: Android (Linux)
+    name: Android ${{ matrix.abi }} (Linux)
     runs-on: ubuntu-24.04
     needs: core
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            rust-target: aarch64-linux-android
+            skip-arch: aarch64
+            e2e: false
+          - abi: x86_64
+            rust-target: x86_64-linux-android
+            skip-arch: x86_64
+            e2e: true
+    env:
+      # Read by core/swift/ZenCore/Package.swift to pick the library to link.
+      ZEN_ANDROID_ABI: ${{ matrix.abi }}
     steps:
       - uses: actions/checkout@v4
+      - name: Free disk space for the emulator
+        if: matrix.e2e
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY/CodeQL"
       - name: Select NDK
         run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: ${{ matrix.rust-target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-          key: android
+          key: android-${{ matrix.abi }}
       - name: Cache NSS
         id: nss-cache
         uses: actions/cache@v4
@@ -88,12 +107,7 @@ jobs:
           sudo apt-get install -y -q ninja-build
           scripts/build-nss.sh android
       - name: Build libzen_core.so
-        run: scripts/build-core-android.sh arm64-v8a
-      - uses: actions/upload-artifact@v4
-        with:
-          name: zencore-android
-          path: core/swift/ZenCore/lib/android
-          if-no-files-found: error
+        run: scripts/build-core-android.sh ${{ matrix.abi }}
       - uses: actions/download-artifact@v4
         with:
           name: zencore-bindings
@@ -102,14 +116,6 @@ jobs:
         run: scripts/ci/install-swift-linux.sh --android
       - name: Install Skip
         run: scripts/ci/install-skip-linux.sh
-      - name: Build app Swift for Android (arm64)
-        working-directory: app
-        run: |
-          skip android build --plain --arch aarch64 \
-            --toolchain "$(dirname "$(dirname "$(dirname "$(which swift)")")")" \
-            --swift "$(which swift)" \
-            --sdk "$SWIFT_ANDROID_SDK_BUNDLE" \
-            --ndk "$ANDROID_NDK_HOME"
       - name: Install Android platform
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
@@ -122,7 +128,7 @@ jobs:
         working-directory: app
         run: |
           export PATH="$GITHUB_WORKSPACE/scripts/ci/xcrun-shim:$PATH"
-          if ! skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain; then
+          if ! skip export --debug --no-ios --arch ${{ matrix.skip-arch }} --no-export-project -d ../build/skip-export --plain; then
             # Skip keeps the details in its own log; surface the failure.
             mkdir -p ../build/logs
             for log in /tmp/skip-export-*.txt; do
@@ -133,14 +139,52 @@ jobs:
             done
             exit 1
           fi
+      - name: Build end-to-end test APK
+        if: matrix.e2e
+        run: |
+          export PATH="$GITHUB_WORKSPACE/scripts/ci/xcrun-shim:$PATH"
+          gradle assembleDebugAndroidTest --project-dir app/Android --console=plain
+          APP_APK="$(find app -path '*outputs/apk/debug/*' -name '*-debug.apk' | head -1)"
+          TEST_APK="$(find app -name '*-debug-androidTest.apk' | head -1)"
+          echo "app: $APP_APK, test: $TEST_APK"
+          test -f "$APP_APK" && test -f "$TEST_APK"
+          echo "APP_APK=$APP_APK" >> "$GITHUB_ENV"
+          echo "TEST_APK=$TEST_APK" >> "$GITHUB_ENV"
+      - name: Enable KVM
+        if: matrix.e2e
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: End-to-end browsing test (emulator)
+        if: matrix.e2e
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disk-size: 6G
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: scripts/ci/run-android-e2e.sh "$APP_APK" "$TEST_APK" build/e2e-android
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.e2e
+        with:
+          name: screenshots-android
+          path: build/e2e-android/screenshots
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: skip-export-logs
-          path: build/logs
+          name: android-logs-${{ matrix.abi }}
+          path: |
+            build/logs
+            build/e2e-android/*.txt
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: android-apk-${{ matrix.abi }}
           path: build/skip-export/*.apk
           if-no-files-found: error
 
@@ -184,20 +228,65 @@ jobs:
       - uses: skiptools/actions/setup-skip@v1
         with:
           run-doctor: "false"
-      - name: Build iOS app (simulator)
+      # Builds the app and runs the end-to-end browsing test
+      # (app/Darwin/UITests) on a simulator in one go.
+      - name: Build and test iOS app (simulator)
         working-directory: app
+        env:
+          # xcodebuild passes TEST_RUNNER_-prefixed variables to the tests.
+          TEST_RUNNER_ZEN_SCREENSHOT_DIR: ${{ github.workspace }}/build/screenshots-ios
         run: |
-          xcodebuild build \
+          SIM_ID="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          for runtime in sorted((r for r in runtimes if "iOS" in r), reverse=True):
+              phones = [d for d in runtimes[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"])
+                  break
+          ')"
+          echo "Simulator: $SIM_ID"
+          xcodebuild test \
             -project Darwin/ZenMobile.xcodeproj \
             -scheme "ZenMobile App" \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
+            -destination "platform=iOS Simulator,id=$SIM_ID" \
             -derivedDataPath ../build/DerivedData \
+            -resultBundlePath ../build/ios-tests.xcresult \
             -skipPackagePluginValidation -skipMacroValidation \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO SKIP_ACTION=none
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ios-simulator-app
-          path: build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
-          if-no-files-found: warn
+          name: screenshots-ios
+          path: build/screenshots-ios
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-test-results
+          path: build/ios-tests.xcresult
+          if-no-files-found: ignore
+
+  # Puts the end-to-end screenshots inline in the run summary. The repository
+  # is public, so the images are committed to the ci-screenshots branch (one
+  # folder per run, newest 30 kept) and referenced by their raw URLs.
+  screenshots:
+    name: Screenshots
+    runs-on: ubuntu-24.04
+    needs: [android, ios]
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: screenshots-*
+          path: build/screenshots
+      - name: Publish screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci/publish-screenshots.sh build/screenshots

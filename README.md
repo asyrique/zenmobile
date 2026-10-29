@@ -41,9 +41,24 @@ set `zen.spaces-sync.normal-tabs` to `true`.
 | Core for iOS | macOS | `scripts/build-core-ios.sh` |
 | App | macOS + Xcode | `scripts/generate-swift-bindings.sh`, then open `app/Project.xcworkspace` |
 
-CI (`.github/workflows/ci.yml`) runs all of it. Everything Android, including the APK,
-runs on Linux. The iOS simulator build needs the macOS runner, which costs more, so it
-only runs for `main`, pull requests and manual runs.
+CI (`.github/workflows/ci.yml`) runs all of it. Everything Android runs on Linux: the
+APKs (arm64 for phones, x86_64 for the emulator) and an end-to-end browsing test on an
+emulator. The iOS app and its end-to-end test need the macOS runner, so they only run for
+`main`, pull requests and manual runs.
+
+### End-to-end tests
+
+Both platforms run the same native UI test: launch the app, open the address bar, load
+`https://example.com`, check the page's title reaches the tab switcher, then open the
+Space sheet. A screenshot is taken at each step.
+
+- Android: `app/Android/app/src/androidTest/.../BrowsingTest.kt` (UiAutomator), run with
+  `scripts/ci/run-android-e2e.sh` against an emulator.
+- iOS: `app/Darwin/UITests/BrowsingUITests.swift` (XCUITest), run with
+  `xcodebuild test -scheme "ZenMobile App"`.
+
+The screenshots appear inline in each CI run's summary (published to the
+`ci-screenshots` branch by `scripts/ci/publish-screenshots.sh`).
 
 ## Caveats
 

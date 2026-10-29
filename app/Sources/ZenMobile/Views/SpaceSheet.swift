@@ -46,6 +46,7 @@ struct SpaceSheet: View {
                     .background(Circle().fill(Color.white.opacity(0.2)))
             }
             .accessibilityLabel(Text("Close"))
+            .accessibilityIdentifier("closeSpaces")
         }
         .padding(24)
     }
@@ -177,6 +178,7 @@ struct SpacesEmptyState: View {
             }
         }
         .padding(32)
+        .accessibilityIdentifier("spacesEmptyState")
     }
 }
 

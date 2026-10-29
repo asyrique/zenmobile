@@ -32,6 +32,7 @@ struct TabSwitcherView: View {
                             .background(Circle().fill(Color.primary.opacity(0.12)))
                     }
                     .accessibilityLabel(Text("Tabs on your desktop"))
+                    .accessibilityIdentifier("desktopTabsButton")
                     Spacer()
                     NavigationLink { AccountView() } label: {
                         Image(systemName: "gearshape")
@@ -39,6 +40,7 @@ struct TabSwitcherView: View {
                             .background(Circle().fill(Color.primary.opacity(0.12)))
                     }
                     .accessibilityLabel(Text("Settings"))
+                    .accessibilityIdentifier("settingsButton")
                 }
                 .padding(.horizontal, 24)
             }
@@ -55,6 +57,7 @@ struct TabSwitcherView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(tab.title).font(.headline).lineLimit(1)
+                    .accessibilityIdentifier("tabTitle")
                 Spacer()
                 Button { browser.close(tab.id) } label: { Image(systemName: "xmark") }
                     .accessibilityLabel(Text("Close tab"))

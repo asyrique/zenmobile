@@ -43,6 +43,7 @@ struct BrowserView: View {
                 browser.didNavigate(tab.id, to: url, title: title)
             })
             .id(tab.id)
+            .accessibilityIdentifier("webContent")
         } else {
             StartPage(showSpaces: { showSpaces = true }, showAddressBar: { showAddressBar = true })
         }
@@ -67,6 +68,7 @@ struct BottomBar: View {
                 }
             }
             .accessibilityLabel(Text("Tabs"))
+            .accessibilityIdentifier("tabsButton")
             Spacer()
             Button(action: onNewTab) {
                 Image(systemName: "plus")
@@ -75,6 +77,7 @@ struct BottomBar: View {
                     .background(Capsule().fill(Color.primary.opacity(0.15)))
             }
             .accessibilityLabel(Text("New tab"))
+            .accessibilityIdentifier("newTabButton")
             Spacer()
             Button(action: onSpaces) {
                 Image(systemName: "chevron.up")
@@ -83,6 +86,7 @@ struct BottomBar: View {
                     .background(Circle().fill(Color.primary.opacity(0.15)))
             }
             .accessibilityLabel(Text("Spaces"))
+            .accessibilityIdentifier("spacesButton")
         }
         .foregroundStyle(Color.primary)
         .padding(.horizontal, 24)
@@ -102,6 +106,7 @@ struct StartPage: View {
             Spacer()
             Text("Zen")
                 .font(.largeTitle.bold())
+                .accessibilityIdentifier("startTitle")
             switch app.account {
             case .signedOut, .signingIn:
                 Text("Sign in with your Firefox account to see what's open on your desktop.")
@@ -131,17 +136,26 @@ struct AddressBarView: View {
 
     var body: some View {
         VStack {
-            TextField("Search or enter address", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .onSubmit {
-                    if let url = BrowserModel.url(forInput: text) {
-                        onSubmit(url)
-                    }
-                }
-                .padding()
+            HStack {
+                TextField("Search or enter address", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .onSubmit(submit)
+                    .accessibilityIdentifier("addressField")
+                Button("Go", action: submit)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(text.isEmpty)
+                    .accessibilityIdentifier("addressGo")
+            }
+            .padding()
             Spacer()
         }
         .presentationDetents([.medium])
+    }
+
+    private func submit() {
+        if let url = BrowserModel.url(forInput: text) {
+            onSubmit(url)
+        }
     }
 }
