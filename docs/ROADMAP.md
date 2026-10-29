@@ -25,9 +25,10 @@ real UI.
       sheet, tab switcher, desktop tabs and sign-in views.
 - [ ] Run it: iOS simulator and an Android emulator/device, sign in, see desktop tabs.
 - [ ] GeckoView embedded in a Skip view: load a URL, observe navigations, intercept
-      the OAuth redirect.
-- [ ] CI green: Rust + Swift tests and the Android cross-compile on Linux; iOS
-      simulator build and Android APK on a macOS runner.
+      the OAuth redirect. The code compiles into the APK; not yet run on a device.
+- [x] CI green. Linux: Rust + Swift tests, NSS + core for Android, and the Android
+      debug APK (Gradle + GeckoView, Kotlin from Skip). macOS (main, PRs, manual
+      runs only): NSS + core for iOS and the iOS simulator app.
 
 ## M1 — Desktop tabs on the phone
 
