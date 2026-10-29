@@ -3,8 +3,15 @@ name: CI
 on:
   push:
     branches: [main, "claude/**"]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
   workflow_dispatch:
+    inputs:
+      ios:
+        description: "Also build the iOS app (macOS runner, billed at a higher rate)"
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -102,13 +109,15 @@ jobs:
             --sdk "$SWIFT_ANDROID_SDK_BUNDLE" \
             --ndk "$ANDROID_NDK_HOME"
 
-  # The real app builds: SwiftUI for the iOS simulator, and the Android APK
-  # (Skip transpiles the Kotlin side, Gradle pulls in GeckoView).
-  apple:
-    name: App builds (macOS)
+  # The iOS app for the simulator. macOS minutes cost several times Linux
+  # ones, so this runs only for main, pull requests and manual runs, and
+  # does nothing Android (the APK is built on Linux above).
+  ios:
+    name: iOS app (macOS)
     runs-on: macos-26
-    needs: [core, android]
-    timeout-minutes: 120
+    needs: core
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.ios)
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -137,17 +146,8 @@ jobs:
         with:
           name: zencore-bindings
           path: core/swift/ZenCore/Sources
-      - uses: actions/download-artifact@v4
-        with:
-          name: zencore-android
-          path: core/swift/ZenCore/lib/android
-      - name: Stage Android library for the APK
-        run: |
-          mkdir -p app/Android/app/src/main/jniLibs/arm64-v8a
-          cp core/swift/ZenCore/lib/android/arm64-v8a/libzen_core.so app/Android/app/src/main/jniLibs/arm64-v8a/
       - uses: skiptools/actions/setup-skip@v1
         with:
-          install-swift-android-sdk: "true"
           run-doctor: "false"
       - name: Build iOS app (simulator)
         working-directory: app
@@ -161,14 +161,8 @@ jobs:
             -skipPackagePluginValidation -skipMacroValidation \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO SKIP_ACTION=none
-      - name: Build Android APK
-        working-directory: app
-        run: skip export --debug --arch aarch64 --no-ios --no-export-project -d ../build/skip-export --verbose
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: app-builds
-          path: |
-            build/skip-export
-            build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
+          name: ios-simulator-app
+          path: build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
           if-no-files-found: warn
