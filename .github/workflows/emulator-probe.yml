@@ -1,28 +1,56 @@
-name: Emulator probe (macOS arm64)
+name: Emulator probe
 on:
   push:
     branches: ["probe/macos-emulator"]
 jobs:
-  probe:
-    runs-on: macos-latest
-    timeout-minutes: 40
+  arm-kvm:
+    name: ubuntu-24.04-arm has KVM?
+    runs-on: ubuntu-24.04-arm
     steps:
-      - name: Host
-        run: |
+      - run: |
           uname -m
-          sw_vers
-          sysctl -n machdep.cpu.brand_string || true
-          echo "kern.hv_support=$(sysctl -n kern.hv_support 2>/dev/null || echo missing)"
-      - name: Boot arm64 emulator
-        uses: reactivecircus/android-emulator-runner@v2
+          ls -l /dev/kvm || echo "NO /dev/kvm"
+          grep -c -E 'svm|vmx' /proc/cpuinfo || true
+          sudo apt-get install -y -q cpu-checker >/dev/null 2>&1 && sudo kvm-ok || true
+
+  arm64-apk-on-x86-emulator:
+    name: arm64 APK on x86_64 emulator
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          api-level: 34
-          arch: arm64-v8a
+          name: android-apk-arm64-v8a
+          path: apk
+          run-id: 40962693069
+          github-token: ${{ github.token }}
+      - run: ls -la apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
           target: google_apis
-          emulator-boot-timeout: 900
+          arch: x86_64
+          ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: |
-            adb shell getprop ro.product.cpu.abi
-            adb shell getprop sys.boot_completed
-            adb shell uptime
+            adb shell getprop ro.product.cpu.abilist
+            adb shell getprop ro.dalvik.vm.native.bridge
+            adb install -r -g apk/*.apk
+            adb shell monkey -p io.github.asyrique.zenmobile -c android.intent.category.LAUNCHER 1
+            sleep 45
+            adb shell pidof io.github.asyrique.zenmobile || echo "APP NOT RUNNING"
+            adb exec-out screencap -p > launched.png
+            adb logcat -d | grep -E "zenmobile|zen\.mobile|AndroidRuntime|FATAL|native_bridge|libndk_translation|Gecko" | tail -80
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-screenshot
+          path: launched.png
+          if-no-files-found: ignore
