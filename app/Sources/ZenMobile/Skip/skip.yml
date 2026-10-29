@@ -16,6 +16,14 @@ settings:
 
 build:
   contents:
+    # GeckoView 159 (and the AndroidX it pulls in) must be compiled against
+    # Android 37.2; Skip's catalog default is lower. Appended after Skip's own
+    # android block, so it wins. The app module sets the same.
+    - block: 'android'
+      contents:
+        - block: 'compileSdk'
+          contents:
+            - 'version = release(37) { minorApiLevel = 2 }'
     - block: 'dependencies'
       contents:
         # Keep in step with the Firefox version Zen desktop is built on
