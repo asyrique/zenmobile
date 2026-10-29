@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  SWIFT_VERSION: "6.3.3"
+
+jobs:
+  # Rust tests, then the generated Swift bindings compiled and tested against
+  # the real library. The bindings are platform-independent, so the other
+  # jobs reuse them from here.
+  core:
+    name: Core (Rust + Swift, Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NSS
+        run: sudo apt-get update -q && sudo apt-get install -y -q libnss3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Install Swift
+        run: scripts/ci/install-swift-linux.sh
+      - name: Rust tests
+        run: |
+          . scripts/env-linux.sh
+          cd core
+          cargo test --workspace
+      - name: Swift tests
+        env:
+          ZEN_NETWORK_TESTS: "1"
+        run: scripts/test-swift-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zencore-bindings
+          path: |
+            core/swift/ZenCore/Sources/ZenCore/Generated
+            core/swift/ZenCore/Sources/ZenCoreFFI/include
+          if-no-files-found: error
+
+  # NSS and the Rust core for Android, then the app's Swift (including
+  # SwiftUI-on-Android via Skip Fuse) cross-compiled and linked for arm64.
+  android:
+    name: Android core + Swift (Linux)
+    runs-on: ubuntu-24.04
+    needs: core
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select NDK
+        run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: android
+      - name: Cache NSS
+        id: nss-cache
+        uses: actions/cache@v4
+        with:
+          path: .build-deps/application-services/libs/android
+          key: nss-android-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh') }}
+      - name: Build NSS
+        if: steps.nss-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gyp" && "$RUNNER_TEMP/gyp/bin/pip" install -q gyp-next
+          export PATH="$RUNNER_TEMP/gyp/bin:$PATH"
+          sudo apt-get install -y -q ninja-build
+          scripts/build-nss.sh android
+      - name: Build libzen_core.so
+        run: scripts/build-core-android.sh arm64-v8a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zencore-android
+          path: core/swift/ZenCore/lib/android
+          if-no-files-found: error
+      - uses: actions/download-artifact@v4
+        with:
+          name: zencore-bindings
+          path: core/swift/ZenCore/Sources
+      - name: Install Swift + Android SDK
+        run: scripts/ci/install-swift-linux.sh --android
+      - name: Install Skip
+        run: scripts/ci/install-skip-linux.sh
+      - name: Build app Swift for Android (arm64)
+        working-directory: app
+        run: |
+          skip android build --plain --arch aarch64 \
+            --toolchain "$(dirname "$(dirname "$(dirname "$(which swift)")")")" \
+            --swift "$(which swift)" \
+            --sdk "$HOME/.swiftpm/swift-sdks/swift-$SWIFT_VERSION-RELEASE_android.artifactbundle" \
+            --ndk "$ANDROID_NDK_HOME"
+
+  # The real app builds: SwiftUI for the iOS simulator, and the Android APK
+  # (Skip transpiles the Kotlin side, Gradle pulls in GeckoView).
+  apple:
+    name: App builds (macOS)
+    runs-on: macos-26
+    needs: [core, android]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: ios
+      - name: Cache NSS
+        id: nss-cache
+        uses: actions/cache@v4
+        with:
+          path: .build-deps/application-services/libs/ios
+          key: nss-ios-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh') }}
+      - name: Build NSS
+        if: steps.nss-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gyp" && "$RUNNER_TEMP/gyp/bin/pip" install -q gyp-next
+          export PATH="$RUNNER_TEMP/gyp/bin:$PATH"
+          brew install ninja
+          scripts/build-nss.sh ios
+      - name: Build ZenCoreRust.xcframework
+        run: scripts/build-core-ios.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: zencore-bindings
+          path: core/swift/ZenCore/Sources
+      - uses: actions/download-artifact@v4
+        with:
+          name: zencore-android
+          path: core/swift/ZenCore/lib/android
+      - name: Stage Android library for the APK
+        run: |
+          mkdir -p app/Android/app/src/main/jniLibs/arm64-v8a
+          cp core/swift/ZenCore/lib/android/arm64-v8a/libzen_core.so app/Android/app/src/main/jniLibs/arm64-v8a/
+      - uses: skiptools/actions/setup-skip@v1
+        with:
+          install-swift-android-sdk: "true"
+          run-doctor: "false"
+      - name: Build iOS app (simulator)
+        working-directory: app
+        run: |
+          xcodebuild build \
+            -project Darwin/ZenMobile.xcodeproj \
+            -scheme "ZenMobile App" \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath ../build/DerivedData \
+            -skipPackagePluginValidation -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO SKIP_ACTION=none
+      - name: Build Android APK
+        working-directory: app
+        run: skip export --debug --arch aarch64 --no-ios --no-export-project -d ../build/skip-export --verbose
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-builds
+          path: |
+            build/skip-export
+            build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: warn

@@ -1,0 +1,16 @@
+# Skip configuration for the ZenMobile module.
+
+# this is a natively-compiled Skip Fuse module
+skip:
+  mode: 'native'
+
+build:
+  contents:
+    - block: 'repositories'
+      contents:
+        - 'maven("https://maven.mozilla.org/maven2/")'
+    - block: 'dependencies'
+      contents:
+        # Keep in step with the Firefox version Zen desktop is built on
+        # (surfer.json in zen-browser/desktop).
+        - 'implementation("org.mozilla.geckoview:geckoview:159.0.20261022150525")'

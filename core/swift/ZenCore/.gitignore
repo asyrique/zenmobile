@@ -1,0 +1,5 @@
+/.build
+/Sources/ZenCore/Generated
+/Sources/ZenCoreFFI/include
+/ZenCoreRust.xcframework
+/lib

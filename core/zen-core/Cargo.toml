@@ -1,0 +1,29 @@
+[package]
+name = "zen-core"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+description = "Zen Mobile's shared Rust core: one library linking application-services and Zen Spaces sync"
+
+[lib]
+# staticlib for the iOS xcframework, cdylib for Android and for running
+# uniffi-bindgen in library mode, rlib for tests.
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+anyhow.workspace = true
+error-support.workspace = true
+fxa-client.workspace = true
+init_rust_components.workspace = true
+interrupt-support.workspace = true
+parking_lot.workspace = true
+rust-log-forwarder.workspace = true
+sync15 = { workspace = true, features = ["sync-client"] }
+tabs.workspace = true
+thiserror.workspace = true
+uniffi.workspace = true
+url.workspace = true
+viaduct.workspace = true
+viaduct-backend-rust.workspace = true
+zen-spaces = { path = "../zen-spaces" }
