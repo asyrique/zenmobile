@@ -3,54 +3,63 @@ on:
   push:
     branches: ["probe/macos-emulator"]
 jobs:
-  arm-kvm:
-    name: ubuntu-24.04-arm has KVM?
+  redroid:
+    name: Redroid (Android in a container) on ubuntu-24.04-arm
     runs-on: ubuntu-24.04-arm
-    steps:
-      - run: |
-          uname -m
-          ls -l /dev/kvm || echo "NO /dev/kvm"
-          grep -c -E 'svm|vmx' /proc/cpuinfo || true
-          sudo apt-get install -y -q cpu-checker >/dev/null 2>&1 && sudo kvm-ok || true
-
-  arm64-apk-on-x86-emulator:
-    name: arm64 APK on x86_64 emulator
-    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       actions: read
     steps:
+      - name: Kernel support for Binder
+        run: |
+          uname -a
+          grep -iE "binder|ashmem" "/boot/config-$(uname -r)" || echo "no binder in kernel config"
+          if ! sudo modprobe binder_linux devices="binder,hwbinder,vndbinder"; then
+            echo "binder_linux not loadable; trying linux-modules-extra"
+            sudo apt-get update -q
+            sudo apt-get install -y -q "linux-modules-extra-$(uname -r)" || true
+            sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || echo "BINDER MODULE UNAVAILABLE"
+          fi
+          lsmod | grep -i binder || true
+          ls -l /dev/binder* /dev/binderfs 2>/dev/null || true
+          grep binder /proc/filesystems || true
       - uses: actions/download-artifact@v4
         with:
           name: android-apk-arm64-v8a
           path: apk
           run-id: 40962693069
           github-token: ${{ github.token }}
-      - run: ls -la apk
-      - name: Enable KVM
+      - name: Start Redroid
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          ram-size: 4096M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: |
-            adb shell getprop ro.product.cpu.abilist
-            adb shell getprop ro.dalvik.vm.native.bridge
-            adb install -r -g apk/*.apk
-            adb shell monkey -p io.github.asyrique.zenmobile -c android.intent.category.LAUNCHER 1
-            sleep 45
-            adb shell pidof io.github.asyrique.zenmobile || echo "APP NOT RUNNING"
-            adb exec-out screencap -p > launched.png
-            adb logcat -d | grep -E "zenmobile|zen\.mobile|AndroidRuntime|FATAL|native_bridge|libndk_translation|Gecko" | tail -80
+          sudo apt-get install -y -q adb > /dev/null
+          docker run -d --privileged --name redroid -p 5555:5555 \
+            redroid/redroid:14.0.0-latest \
+            androidboot.redroid_gpu_mode=guest \
+            androidboot.redroid_width=1080 androidboot.redroid_height=2340 androidboot.redroid_dpi=420
+          sleep 10
+          docker ps -a
+          docker logs redroid 2>&1 | tail -30
+      - name: Boot, install, launch
+        run: |
+          for i in $(seq 1 60); do
+            adb connect localhost:5555 > /dev/null 2>&1 || true
+            if [ "$(adb -s localhost:5555 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              echo "booted after $((i * 5))s"; break
+            fi
+            sleep 5
+          done
+          A="adb -s localhost:5555"
+          $A shell getprop ro.build.version.release
+          $A shell getprop ro.product.cpu.abilist
+          $A install -r -g apk/*.apk
+          $A shell monkey -p io.github.asyrique.zenmobile -c android.intent.category.LAUNCHER 1
+          sleep 40
+          $A shell pidof io.github.asyrique.zenmobile || echo "APP NOT RUNNING"
+          $A exec-out screencap -p > launched.png
+          $A logcat -d | grep -E "zenmobile|zen\.mobile|AndroidRuntime|FATAL|Gecko" | tail -80
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: probe-screenshot
+          name: redroid-probe-screenshot
           path: launched.png
           if-no-files-found: ignore
