@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- An open ensō ring; regenerate the app icons with
+       skip icon --background "#7B4FD8-#2A1858" AppIcon.svg -->
+  <path d="M 50 12 A 38 38 0 1 0 85 35" fill="none" stroke="#FFFFFF"
+        stroke-width="10" stroke-linecap="round"/>
+</svg>
