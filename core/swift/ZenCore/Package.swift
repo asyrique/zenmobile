@@ -16,10 +16,13 @@ let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().pat
 var zenCoreDependencies: [Target.Dependency] = ["ZenCoreFFI"]
 var extraTargets: [Target] = []
 
-#if os(macOS)
-zenCoreDependencies.append(.target(name: "ZenCoreRust", condition: .when(platforms: [.iOS, .macOS])))
-extraTargets.append(.binaryTarget(name: "ZenCoreRust", path: "ZenCoreRust.xcframework"))
-#endif
+// SwiftPM insists a declared binary target exists even when building for a
+// platform that doesn't use it, so declare it only once it's been built:
+// Apple builds run build-core-apple.sh first; Android builds don't need it.
+if FileManager.default.fileExists(atPath: "\(packageDir)/ZenCoreRust.xcframework") {
+    zenCoreDependencies.append(.target(name: "ZenCoreRust", condition: .when(platforms: [.iOS, .macOS])))
+    extraTargets.append(.binaryTarget(name: "ZenCoreRust", path: "ZenCoreRust.xcframework"))
+}
 
 let package = Package(
     name: "ZenCore",
