@@ -4,11 +4,18 @@
 skip:
   mode: 'native'
 
+# GeckoView is published on Mozilla's Maven, which every module (and the
+# app) has to be able to resolve, so it goes in the project-wide settings.
+settings:
+  contents:
+    - block: 'dependencyResolutionManagement'
+      contents:
+        - block: 'repositories'
+          contents:
+            - 'maven("https://maven.mozilla.org/maven2/")'
+
 build:
   contents:
-    - block: 'repositories'
-      contents:
-        - 'maven("https://maven.mozilla.org/maven2/")'
     - block: 'dependencies'
       contents:
         # Keep in step with the Firefox version Zen desktop is built on
