@@ -36,6 +36,7 @@ extension ZenWebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
+        context.coordinator.observe(webView)
         webView.load(URLRequest(url: url))
         context.coordinator.loadedURL = url
         return webView
@@ -51,28 +52,42 @@ extension ZenWebView: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
         var parent: ZenWebView
+        /// The page the web view is on, so updateUIView only loads when the
+        /// caller asks for a different one.
         var loadedURL: URL?
+        private var observations: [NSKeyValueObservation] = []
 
         init(_ parent: ZenWebView) {
             self.parent = parent
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
-                     decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-            if action.targetFrame?.isMainFrame != false, let url = action.request.url, parent.shouldCancel(url) {
-                decisionHandler(.cancel)
-            } else {
-                decisionHandler(.allow)
-            }
+        /// Reports title and URL changes. KVO also catches titles set after
+        /// the load finishes and in-page navigations that never finish.
+        func observe(_ webView: WKWebView) {
+            // WebKit delivers these on the main thread.
+            observations = [
+                webView.observe(\.title) { [weak self] webView, _ in
+                    MainActor.assumeIsolated { self?.report(webView) }
+                },
+                webView.observe(\.url) { [weak self] webView, _ in
+                    MainActor.assumeIsolated { self?.report(webView) }
+                },
+            ]
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            if let url = webView.url {
-                loadedURL = loadedURL ?? url
-                parent.didNavigate(url, webView.title)
+        private func report(_ webView: WKWebView) {
+            guard let url = webView.url else { return }
+            loadedURL = url
+            parent.didNavigate(url, webView.title)
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+            if action.targetFrame?.isMainFrame != false, let url = action.request.url, parent.shouldCancel(url) {
+                return .cancel
             }
+            return .allow
         }
     }
 }
