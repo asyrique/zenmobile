@@ -124,9 +124,12 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/scripts/ci/xcrun-shim:$PATH"
           if ! skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain; then
             # Skip keeps the details in its own log; surface the failure.
+            mkdir -p ../build/logs
             for log in /tmp/skip-export-*.txt; do
-              grep -nE "^e: |error:|What went wrong|^> |FAILED|Exception" "$log" | grep -v "^[0-9]*:> Task" | head -60
-              mkdir -p ../build/logs && cp "$log" ../build/logs/
+              grep -nE "^e: |error:" "$log" | head -40
+              grep -A60 "What went wrong" "$log"
+              # Artifact names can't contain the colons in Skip's timestamp.
+              cp "$log" "../build/logs/$(basename "$log" | tr ':' '-')"
             done
             exit 1
           fi
