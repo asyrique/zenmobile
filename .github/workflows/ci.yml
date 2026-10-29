@@ -122,7 +122,19 @@ jobs:
         working-directory: app
         run: |
           export PATH="$GITHUB_WORKSPACE/scripts/ci/xcrun-shim:$PATH"
-          skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain
+          if ! skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain; then
+            # Skip keeps the details in its own log; surface the failure.
+            for log in /tmp/skip-export-*.txt; do
+              grep -nE "^e: |error:|What went wrong|^> |FAILED|Exception" "$log" | grep -v "^[0-9]*:> Task" | head -60
+              mkdir -p ../build/logs && cp "$log" ../build/logs/
+            done
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: skip-export-logs
+          path: build/logs
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
