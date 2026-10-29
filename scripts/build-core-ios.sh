@@ -1,36 +1,42 @@
 #!/usr/bin/env bash
-# Builds the Rust core as a static library for iOS devices and the
-# simulator, and wraps both in core/swift/ZenCore/ZenCoreRust.xcframework.
-# arm64 only (Apple silicon simulators): build with ARCHS=arm64 when the
-# destination is the generic "Any iOS Simulator".
-# NSS is linked statically, so the archive is self-contained apart from
-# system libraries (declared in ZenCore's Package.swift).
+# Builds the Rust core as a static library for Apple platforms and wraps the
+# slices in core/swift/ZenCore/ZenCoreRust.xcframework. NSS is linked
+# statically, so each archive is self-contained apart from system libraries
+# (declared in ZenCore's Package.swift). arm64 only.
 #
-# Usage: scripts/build-core-ios.sh
-# Needs: macOS + Xcode, NSS from `scripts/build-nss.sh ios`, and
-# `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`.
+# Usage: scripts/build-core-ios.sh [slice...]
+#   slices: ios (devices), ios-sim (Apple silicon simulators), macos (for
+#   running the Swift tests on a Mac). Default: ios ios-sim.
+# Needs: macOS + Xcode, NSS from `scripts/build-nss.sh ios` (and `desktop`
+# for macos), and the matching `rustup target add` for each slice.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-NSS_ROOT="${NSS_IOS_DIR:-$ROOT/.build-deps/application-services/libs/ios}"
+LIBS="$ROOT/.build-deps/application-services/libs"
+NSS_IOS="${NSS_IOS_DIR:-$LIBS/ios}"
+NSS_MACOS="${NSS_MACOS_DIR:-$LIBS/desktop/darwin/nss}"
 PROFILE="${CARGO_PROFILE:-release}"
 OUT_DIR="$PROFILE"; [[ "$PROFILE" == "dev" ]] && OUT_DIR=debug
-export IPHONEOS_DEPLOYMENT_TARGET=17.0
+export IPHONEOS_DEPLOYMENT_TARGET=17.0 MACOSX_DEPLOYMENT_TARGET=14.0
 
-build() {
-  local triple="$1" nss_arch="$2"
-  NSS_DIR="$NSS_ROOT/$nss_arch/nss" NSS_STATIC=1 \
-    cargo rustc -p zen-core --lib --profile "$PROFILE" --target "$triple" --crate-type staticlib
-}
+SLICES=("$@")
+[[ ${#SLICES[@]} -eq 0 ]] && SLICES=(ios ios-sim)
 
 cd "$ROOT/core"
-build aarch64-apple-ios arm64
-build aarch64-apple-ios-sim arm64-sim
+XCF_ARGS=()
+for slice in "${SLICES[@]}"; do
+  case "$slice" in
+    ios) triple=aarch64-apple-ios; nss="$NSS_IOS/arm64/nss" ;;
+    ios-sim) triple=aarch64-apple-ios-sim; nss="$NSS_IOS/arm64-sim/nss" ;;
+    macos) triple=aarch64-apple-darwin; nss="$NSS_MACOS" ;;
+    *) echo "unknown slice $slice" >&2; exit 1 ;;
+  esac
+  NSS_DIR="$nss" NSS_STATIC=1 \
+    cargo rustc -p zen-core --lib --profile "$PROFILE" --target "$triple" --crate-type staticlib
+  XCF_ARGS+=(-library "target/$triple/$OUT_DIR/libzen_core.a")
+done
 
 XCF="$ROOT/core/swift/ZenCore/ZenCoreRust.xcframework"
 rm -rf "$XCF"
-xcodebuild -create-xcframework \
-  -library "target/aarch64-apple-ios/$OUT_DIR/libzen_core.a" \
-  -library "target/aarch64-apple-ios-sim/$OUT_DIR/libzen_core.a" \
-  -output "$XCF"
-echo "Built $XCF"
+xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$XCF"
+echo "Built $XCF (${SLICES[*]})"
