@@ -23,7 +23,9 @@ real UI.
       `scripts/build-core-{ios,android}.sh` producing the xcframework and `.so` files.
 - [x] App generated with `skip init` (Skip 1.9.20); first cut of the browser, Space
       sheet, tab switcher, desktop tabs and sign-in views.
-- [ ] Run it: iOS simulator and an Android emulator/device, sign in, see desktop tabs.
+- [x] The Android APK launches and renders natively on arm64 Android (Redroid in CI).
+- [ ] End-to-end browsing test green on iOS (simulator) and Android (Redroid).
+- [ ] Sign in and see desktop tabs on a device.
 - [ ] GeckoView embedded in a Skip view: load a URL, observe navigations, intercept
       the OAuth redirect. The code compiles into the APK; not yet run on a device.
 - [x] CI green. Linux: Rust + Swift tests, NSS + core for Android, and the Android

@@ -41,10 +41,14 @@ set `zen.spaces-sync.normal-tabs` to `true`.
 | Core for iOS | macOS | `scripts/build-core-ios.sh` |
 | App | macOS + Xcode | `scripts/generate-swift-bindings.sh`, then open `app/Project.xcworkspace` |
 
-CI (`.github/workflows/ci.yml`) runs all of it. Everything Android runs on Linux: the
-APKs (arm64 for phones, x86_64 for the emulator) and an end-to-end browsing test on an
-emulator. The iOS app and its end-to-end test need the macOS runner, so they only run for
-`main`, pull requests and manual runs.
+CI (`.github/workflows/ci.yml`) runs all of it on `macos-latest` (Apple silicon), building
+arm64 only: the Rust and Swift tests, the iOS app and its end-to-end test on a simulator,
+and the Android APK. The Android end-to-end test installs that same APK, unmodified, on
+arm64 Android running in [Redroid](https://github.com/remote-android/redroid-doc) (Android
+as a container) on an `ubuntu-24.04-arm` runner. GitHub's runners can't run the Android
+emulator, but Redroid shares the host kernel, so arm64 apps run natively. The Linux scripts
+(`scripts/env-linux.sh`, `scripts/test-swift-linux.sh`, `scripts/ci/*-linux.sh`,
+`scripts/ci/xcrun-shim`) remain for developing on Linux.
 
 ### End-to-end tests
 
@@ -53,7 +57,7 @@ Both platforms run the same native UI test: launch the app, open the address bar
 Space sheet. A screenshot is taken at each step.
 
 - Android: `app/Android/app/src/androidTest/.../BrowsingTest.kt` (UiAutomator), run with
-  `scripts/ci/run-android-e2e.sh` against an emulator.
+  `scripts/ci/start-redroid.sh` and `scripts/ci/run-android-e2e.sh`.
 - iOS: `app/Darwin/UITests/BrowsingUITests.swift` (XCUITest), run with
   `xcodebuild test -scheme "ZenMobile App"`.
 

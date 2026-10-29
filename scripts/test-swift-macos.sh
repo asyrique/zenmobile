@@ -9,6 +9,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$ROOT/scripts/env-macos.sh"
 
 "$ROOT/scripts/generate-swift-bindings.sh"
-"$ROOT/scripts/build-core-ios.sh" macos
+# Debug, to reuse the build generate-swift-bindings.sh just made.
+CARGO_PROFILE=dev "$ROOT/scripts/build-core-ios.sh" macos
 cd "$ROOT/core/swift/ZenCore"
 swift test "$@"

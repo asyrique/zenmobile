@@ -42,9 +42,15 @@ publish() {
     mkdir -p "$RUN_DIR/$platform"
     cp "$platform_dir"*.png "$RUN_DIR/$platform/" 2>/dev/null || true
   done
-  # Drop all but the newest runs (run ids increase).
+  # Drop all but the newest runs (run ids increase). Plain shell, so it
+  # behaves the same with BSD (macOS) and GNU tools.
   if [[ -d runs ]]; then
-    ls -1 runs | sort -n | head -n "-$KEEP_RUNS" | sed 's|^|runs/|' | xargs -r git rm -rq --
+    extra=$(( $(ls -1 runs | wc -l) - KEEP_RUNS ))
+    if (( extra > 0 )); then
+      for old in $(ls -1 runs | sort -n | head -n "$extra"); do
+        git rm -rq -- "runs/$old"
+      done
+    fi
   fi
   git add -A
   git commit -q -m "Screenshots for ${GITHUB_REPOSITORY} run ${GITHUB_RUN_ID} (${GITHUB_SHA:0:7})"
