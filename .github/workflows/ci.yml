@@ -159,6 +159,7 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath ../build/DerivedData \
             -skipPackagePluginValidation -skipMacroValidation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO SKIP_ACTION=none
       - name: Build Android APK
         working-directory: app

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds the Rust core as a static library for iOS devices and the
 # simulator, and wraps both in core/swift/ZenCore/ZenCoreRust.xcframework.
+# arm64 only (Apple silicon simulators): build with ARCHS=arm64 when the
+# destination is the generic "Any iOS Simulator".
 # NSS is linked statically, so the archive is self-contained apart from
 # system libraries (declared in ZenCore's Package.swift).
 #
