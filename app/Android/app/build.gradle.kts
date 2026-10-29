@@ -17,7 +17,13 @@ kotlin {
 
 android {
     namespace = group as String
-    compileSdk = libs.versions.android.sdk.compile.get().toInt()
+    // GeckoView 159 (and current AndroidX) need to be compiled against
+    // Android 37.2; Skip's catalog default is lower. targetSdk stays as is.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.toVersion(libs.versions.jvm.get())
         targetCompatibility = JavaVersion.toVersion(libs.versions.jvm.get())
