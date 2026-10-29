@@ -1,0 +1,28 @@
+name: Emulator probe (macOS arm64)
+on:
+  push:
+    branches: ["probe/macos-emulator"]
+jobs:
+  probe:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Host
+        run: |
+          uname -m
+          sw_vers
+          sysctl -n machdep.cpu.brand_string || true
+          echo "kern.hv_support=$(sysctl -n kern.hv_support 2>/dev/null || echo missing)"
+      - name: Boot arm64 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: arm64-v8a
+          target: google_apis
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            adb shell getprop ro.product.cpu.abi
+            adb shell getprop sys.boot_completed
+            adb shell uptime
