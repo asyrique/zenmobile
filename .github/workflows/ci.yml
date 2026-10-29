@@ -99,7 +99,7 @@ jobs:
           skip android build --plain --arch aarch64 \
             --toolchain "$(dirname "$(dirname "$(dirname "$(which swift)")")")" \
             --swift "$(which swift)" \
-            --sdk "$HOME/.swiftpm/swift-sdks/swift-$SWIFT_VERSION-RELEASE_android.artifactbundle" \
+            --sdk "$SWIFT_ANDROID_SDK_BUNDLE" \
             --ndk "$ANDROID_NDK_HOME"
 
   # The real app builds: SwiftUI for the iOS simulator, and the Android APK

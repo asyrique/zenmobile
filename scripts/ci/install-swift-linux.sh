@@ -22,8 +22,18 @@ swift --version
 if [[ "${1:-}" == "--android" ]]; then
   : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME to an NDK r27+}"
   BUNDLE="swift-$VERSION-RELEASE_android.artifactbundle"
-  if ! swift sdk list | grep -q "$BUNDLE"; then
+  # `swift sdk list` names SDKs without the .artifactbundle suffix.
+  INSTALLED="$(swift sdk list)"
+  if ! grep -q "swift-$VERSION-RELEASE_android" <<<"$INSTALLED"; then
     swift sdk install "$BASE/android-sdk/swift-$VERSION-RELEASE/$BUNDLE.tar.gz" --checksum "$ANDROID_SDK_CHECKSUM"
   fi
-  bash "$HOME/.swiftpm/swift-sdks/$BUNDLE/swift-android/scripts/setup-android-sdk.sh"
+  # Where SwiftPM unpacked it varies (~/.swiftpm, ~/.config/swiftpm, and a
+  # URL install may nest the bundle one level deeper), so look it up.
+  SETUP="$(find "$HOME/.swiftpm" "$HOME/.config/swiftpm" "$HOME/.local/share/swiftpm" \
+    -path "*/swift-android/scripts/setup-android-sdk.sh" 2>/dev/null | head -1 || true)"
+  [[ -n "$SETUP" ]] || { echo "Swift Android SDK setup script not found" >&2; exit 1; }
+  bash "$SETUP"
+  SDK_BUNDLE="$(dirname "$(dirname "$(dirname "$SETUP")")")"
+  echo "Swift Android SDK: $SDK_BUNDLE"
+  if [[ -n "${GITHUB_ENV:-}" ]]; then echo "SWIFT_ANDROID_SDK_BUNDLE=$SDK_BUNDLE" >> "$GITHUB_ENV"; fi
 fi
