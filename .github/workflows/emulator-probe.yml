@@ -52,14 +52,22 @@ jobs:
           $A shell getprop ro.build.version.release
           $A shell getprop ro.product.cpu.abilist
           $A install -r -g apk/*.apk
-          $A shell monkey -p io.github.asyrique.zenmobile -c android.intent.category.LAUNCHER 1
+          ACTIVITY="$($A shell cmd package resolve-activity --brief io.github.asyrique.zenmobile | tail -1 | tr -d '\r')"
+          echo "launching $ACTIVITY"
+          $A shell am start -W -n "$ACTIVITY" || true
           sleep 40
           $A shell pidof io.github.asyrique.zenmobile || echo "APP NOT RUNNING"
-          $A exec-out screencap -p > launched.png
-          $A logcat -d | grep -E "zenmobile|zen\.mobile|AndroidRuntime|FATAL|Gecko" | tail -80
+          $A exec-out screencap -p > launched.png || true
+          $A logcat -d > logcat.txt || true
+          echo "---- crash buffer ----"
+          $A logcat -d -b crash | tail -60 || true
+          echo "---- around SkipBridge / native loading ----"
+          grep -B4 -A12 -E "SkipBridge|nativeloader|dlopen|UnsatisfiedLink" logcat.txt | grep -vE "AppsFilter" | head -120
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: redroid-probe-screenshot
-          path: launched.png
+          name: redroid-probe-output
+          path: |
+            launched.png
+            logcat.txt
           if-no-files-found: ignore
