@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/desktop
-          key: nss-desktop-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh') }}
+          key: nss-desktop-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |
@@ -84,7 +84,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/ios
-          key: nss-ios-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh') }}
+          key: nss-ios-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |
@@ -165,7 +165,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/android
-          key: nss-android-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh') }}
+          key: nss-android-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |
