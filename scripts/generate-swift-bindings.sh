@@ -12,7 +12,7 @@ CORE="$ROOT/core"
 PKG="$CORE/swift/ZenCore"
 
 if [[ $# -ge 1 ]]; then
-  LIB="$1"
+  LIB="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 else
   case "$(uname)" in
     Darwin) LIB="$CORE/target/debug/libzen_core.dylib" ;;
@@ -27,8 +27,7 @@ trap 'rm -rf "$OUT"' EXIT
 
 GEN_SWIFT="$PKG/Sources/ZenCore/Generated"
 GEN_FFI="$PKG/Sources/ZenCoreFFI/include"
-rm -rf "$GEN_SWIFT" && mkdir -p "$GEN_SWIFT"
-find "$GEN_FFI" -name '*.h' -delete
+rm -rf "$GEN_SWIFT" "$GEN_FFI" && mkdir -p "$GEN_SWIFT" "$GEN_FFI"
 cp "$OUT"/*.swift "$GEN_SWIFT/"
 cp "$OUT"/*.h "$GEN_FFI/"
 
