@@ -51,6 +51,9 @@ struct BrowserView: View {
 }
 
 struct BottomBar: View {
+    /// Space content should leave below itself for the bar.
+    static let height: CGFloat = 72
+
     let tabCount: Int
     let onTabs: () -> Void
     let onNewTab: () -> Void
@@ -119,6 +122,8 @@ struct StartPage: View {
             syncPrompt
         }
         .padding(32)
+        // Keep everything clear of the floating bottom bar.
+        .padding(.bottom, BottomBar.height)
     }
 
     @ViewBuilder private var syncPrompt: some View {
