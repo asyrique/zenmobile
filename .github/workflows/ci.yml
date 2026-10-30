@@ -179,6 +179,18 @@ jobs:
         with:
           name: zencore-bindings
           path: core/swift/ZenCore/Sources
+      # Skip's build folder (the Android Swift build of every Skip package,
+      # and Gradle's outputs) and Gradle's dependencies. Keyed on the
+      # dependencies, so a run only recompiles our own modules.
+      - name: Cache Android build
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/.build
+            app/Android/.gradle
+            ~/.gradle/caches
+          key: android-build-${{ hashFiles('app/Package.resolved', 'app/Sources/ZenMobile/Skip/skip.yml', 'app/Android/**/*.kts') }}
+          restore-keys: android-build-
       - uses: skiptools/actions/setup-skip@v1
         with:
           install-swift-android-sdk: "true"
@@ -191,7 +203,9 @@ jobs:
       - name: Build APK
         working-directory: app
         run: |
-          if ! skip export --debug --no-ios --arch aarch64 --no-export-project -d ../build/skip-export --plain; then
+          # line-tables: file and line debug info for the native libraries
+          # instead of full type info, much faster to build and package.
+          if ! skip export --debug --no-ios --arch aarch64 --debug-info line-tables --no-export-project -d ../build/skip-export --plain; then
             # Skip keeps the details in its own log; surface the failure.
             mkdir -p ../build/logs
             for log in "${TMPDIR:-/tmp}"/skip-export-*.txt /tmp/skip-export-*.txt; do

@@ -75,7 +75,10 @@ with screenshots in the CI run. Constraints:
   Redroid image (`redroid/redroid:14.0.0-latest`, overridable via `REDROID_IMAGE`). If
   either goes away, the fallback is the x86_64 emulator with a dedicated x86_64 build.
 - macOS runners are slower (3 CPU) than Linux ones and have less disk. NSS builds are
-  cached per platform to keep runs reasonable.
+  cached per platform, and the Android job caches Skip's build folder and Gradle's
+  dependencies, so a run only recompiles our own modules. The CI APK carries line-table
+  debug info (`skip export --debug-info line-tables`): enough for crash backtraces, and
+  much faster to build and package than full debug info.
 - Screenshots depend on the repository staying public. A private repo would need
   artifacts instead of inline images.
 - `app/AppIcon.svg` and the vector Android launcher icon were made while icons couldn't
