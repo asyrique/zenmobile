@@ -21,7 +21,8 @@ final class BrowsingUITests: XCTestCase {
     }
 
     override func tearDown() {
-        if testRun?.hasSucceeded == false {
+        // hasSucceeded is still false here (the run isn't finished); count failures.
+        if (testRun?.failureCount ?? 0) > 0 {
             screenshot("failure")
         }
     }
@@ -65,6 +66,8 @@ final class BrowsingUITests: XCTestCase {
 
         // WebKit exposes page content to accessibility: check it rendered.
         waitFor(app.webViews.staticTexts[heading], timeout: 60)
+        // WebKit exposes the text before it has painted the page.
+        Thread.sleep(forTimeInterval: 2)
         screenshot("page")
 
         // The title travels WKWebView → navigation delegate → model → tab card.
