@@ -205,10 +205,11 @@ jobs:
           fi
       - name: Build end-to-end test APK
         run: |
-          gradle assembleDebugAndroidTest --project-dir app/Android --console=plain
+          gradle :app:assembleDebugAndroidTest --project-dir app/Android --console=plain
           mkdir -p build/android
           cp build/skip-export/*.apk build/android/
-          cp "$(find app -name '*-debug-androidTest.apk' | head -1)" build/android/e2e-androidTest.apk
+          # The app module's test APK (each Skip module has its own).
+          cp "$(find app -path '*/app/outputs/apk/androidTest/debug/*' -name '*.apk' | head -1)" build/android/e2e-androidTest.apk
           ls -la build/android
       - uses: actions/upload-artifact@v4
         with:
