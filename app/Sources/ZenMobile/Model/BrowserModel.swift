@@ -14,9 +14,9 @@ import SkipFuse
         /// tapping the same pin again returns here instead of opening a new tab.
         var zenTabId: String?
 
-        var url: URL { page.url }
+        @MainActor var url: URL { page.url }
 
-        var title: String {
+        @MainActor var title: String {
             page.title.isEmpty ? (page.url.host ?? page.url.absoluteString) : page.title
         }
     }
