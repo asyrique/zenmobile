@@ -66,11 +66,15 @@ class BrowsingTest {
         screenshot("start")
 
         waitFor(By.res("newTabButton")).click()
-        val field = waitFor(By.res("addressField"))
-        field.click()
-        field.text = url
+        waitFor(By.res("addressField")).click()
+        // Type with key events, as a person would. UiObject2.setText doesn't
+        // reach Compose text fields (their editable node isn't the tagged one).
+        device.waitForIdle()
+        device.executeShellCommand("input text $url")
+        // Go stays disabled until the field has text: proof the typing landed.
+        val go = waitFor(By.res("addressGo").enabled(true), 10_000)
         screenshot("address-bar")
-        waitFor(By.res("addressGo")).click()
+        go.click()
 
         waitFor(By.res("webContent"))
         device.wait(Until.gone(By.res("addressField")), 10_000)
