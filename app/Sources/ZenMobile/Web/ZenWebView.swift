@@ -9,26 +9,36 @@ import WebKit
 /// `shouldCancel` sees every main-frame navigation before it starts; return
 /// true to stop it (used to catch the OAuth redirect). `didNavigate` reports
 /// the committed URL and the page title.
-struct ZenWebView {
+///
+/// The View conformance lives on the struct itself, with the platform split
+/// inside `body`, as in Skip's samples: Skip's Android bridge didn't render a
+/// view whose conformance came from a platform-specific extension.
+struct ZenWebView: View {
     let url: URL
     var shouldCancel: (URL) -> Bool = { _ in false }
     var didNavigate: (URL, String?) -> Void = { _, _ in }
-}
 
-#if os(Android)
-
-extension ZenWebView: View {
     var body: some View {
-        let _ = logger.info("ZenWebView: showing \(url.absoluteString)")
+        #if os(Android)
         ComposeView {
             GeckoContentComposer(url: url, shouldCancel: shouldCancel, didNavigate: didNavigate)
         }
+        #elseif canImport(UIKit)
+        WebKitView(url: url, shouldCancel: shouldCancel, didNavigate: didNavigate)
+        #else
+        Text("Web content is not available on this platform.")
+        #endif
     }
 }
 
-#elseif canImport(UIKit)
+#if !os(Android) && canImport(UIKit)
 
-extension ZenWebView: UIViewRepresentable {
+/// WKWebView for ZenWebView on iOS.
+struct WebKitView: UIViewRepresentable {
+    let url: URL
+    let shouldCancel: (URL) -> Bool
+    let didNavigate: (URL, String?) -> Void
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -54,13 +64,13 @@ extension ZenWebView: UIViewRepresentable {
     }
 
     @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
-        var parent: ZenWebView
+        var parent: WebKitView
         /// The page the web view is on, so updateUIView only loads when the
         /// caller asks for a different one.
         var loadedURL: URL?
         private var observations: [NSKeyValueObservation] = []
 
-        init(_ parent: ZenWebView) {
+        init(_ parent: WebKitView) {
             self.parent = parent
         }
 
