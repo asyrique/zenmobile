@@ -83,6 +83,10 @@ final class GeckoTab {
     /// view at a time.
     private var view: GeckoView? = nil
 
+    // The methods Swift calls are public: Kotlin renames internal methods
+    // on the JVM (load → load$ZenMobile), and Skip's generated bridge looks
+    // them up by their Swift names.
+
     // Explicit so the generated Swift bridge marks the closures @escaping.
     init(url: URL, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void) {
         initialURL = url
@@ -91,7 +95,7 @@ final class GeckoTab {
         session.contentDelegate = delegate
     }
 
-    func load(url: URL) {
+    public func load(url: URL) {
         if session.isOpen {
             session.loadUri(url.absoluteString)
         } else {
@@ -99,19 +103,19 @@ final class GeckoTab {
         }
     }
 
-    func goBack() {
+    public func goBack() {
         session.goBack()
     }
 
-    func goForward() {
+    public func goForward() {
         session.goForward()
     }
 
-    func reload() {
+    public func reload() {
         session.reload()
     }
 
-    func close() {
+    public func close() {
         session.close()
     }
 
