@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+// Skip Fuse bridges @Observable to Compose only in files that import it;
+// without this the Android UI never sees tabs open.
+import SkipFuse
 
 /// The phone's own tabs.
 @MainActor @Observable final class BrowserModel {
