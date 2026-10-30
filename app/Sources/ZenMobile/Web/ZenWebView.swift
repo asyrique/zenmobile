@@ -93,6 +93,7 @@ final class GeckoTab {
         delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange)
         session.navigationDelegate = delegate
         session.contentDelegate = delegate
+        session.historyDelegate = delegate
     }
 
     public func load(url: URL) {
@@ -147,7 +148,7 @@ final class GeckoTab {
     }
 }
 
-private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate {
+private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate, GeckoSession.HistoryDelegate {
     // Named apart from the delegate methods below, which Kotlin would
     // otherwise confuse with them.
     let shouldCancel: (URL) -> Bool
@@ -189,6 +190,15 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
 
     override func onTitleChange(session: GeckoSession, title: String?) {
         titleChanged(title)
+    }
+
+    // Back and forward restore pages from Gecko's cache without another
+    // onTitleChange, so take the title from the history entry we're on.
+    override func onHistoryStateChange(session: GeckoSession, historyList: GeckoSession.HistoryDelegate.HistoryList) {
+        let index = historyList.currentIndex
+        if index >= 0 && index < historyList.size {
+            titleChanged(historyList.get(index).title)
+        }
     }
 }
 

@@ -107,7 +107,7 @@ struct NavigationBar: View {
             .accessibilityLabel(Text("Address"))
             .accessibilityIdentifier("addressPill")
             Button { page.reload() } label: {
-                Image(systemName: "arrow.clockwise").frame(width: 40, height: 36)
+                Image(systemName: "arrow.clockwise.circle").frame(width: 40, height: 36)
             }
             .accessibilityLabel(Text("Reload"))
             .accessibilityIdentifier("reloadButton")
