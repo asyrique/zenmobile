@@ -2,23 +2,33 @@ import SwiftUI
 import ZenCore
 
 /// The home surface: the current page full-bleed, with an Arc Search-style
-/// bottom bar (tabs · new tab · Space sheet).
+/// bottom bar (tabs · new tab · Space sheet) and, while a page is open, its
+/// navigation controls above it.
 struct BrowserView: View {
     @Environment(AppModel.self) var app
     @Environment(BrowserModel.self) var browser
     @State var showSpaces = false
     @State var showTabs = false
     @State var showAddressBar = false
+    /// Whether the address bar loads into the current tab (tapped its
+    /// address) rather than opening a new one.
+    @State var addressBarEditsTab = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             content
                 .ignoresSafeArea(edges: .top)
-            BottomBar(
-                tabCount: browser.tabs.count,
-                onTabs: { showTabs = true },
-                onNewTab: { showAddressBar = true },
-                onSpaces: { showSpaces = true })
+            VStack(spacing: 0) {
+                if let tab = browser.selectedTab {
+                    NavigationBar(page: tab.page, onAddress: { openAddressBar(editingTab: true) })
+                }
+                BottomBar(
+                    tabCount: browser.tabs.count,
+                    onTabs: { showTabs = true },
+                    onNewTab: { openAddressBar(editingTab: false) },
+                    onSpaces: { showSpaces = true })
+            }
+            .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showSpaces) {
             SpaceSheet { url, title, zenTabId in
@@ -30,25 +40,81 @@ struct BrowserView: View {
             TabSwitcherView()
         }
         .sheet(isPresented: $showAddressBar) {
-            AddressBarView { url in
-                browser.open(url)
+            AddressBarView(placeholder: addressBarPlaceholder) { url in
+                if addressBarEditsTab, let tab = browser.selectedTab {
+                    tab.page.load(url)
+                } else {
+                    browser.open(url)
+                }
                 showAddressBar = false
             }
         }
     }
 
+    private var addressBarPlaceholder: String {
+        if addressBarEditsTab, let tab = browser.selectedTab {
+            return tab.url.absoluteString
+        }
+        return "Search or enter address"
+    }
+
+    private func openAddressBar(editingTab: Bool) {
+        addressBarEditsTab = editingTab
+        showAddressBar = true
+    }
+
     @ViewBuilder private var content: some View {
         if let tab = browser.selectedTab {
-            ZenWebView(url: tab.url, didNavigate: { url, title in
-                browser.didNavigate(tab.id, to: url, title: title)
-            })
-            // Android's AndroidView sizes to its content unless told to fill.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .id(tab.id)
-            .accessibilityIdentifier("webContent")
+            ZenWebView(page: tab.page)
+                // Android's AndroidView sizes to its content unless told to fill.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .id(tab.id)
+                .accessibilityIdentifier("webContent")
         } else {
-            StartPage(showSpaces: { showSpaces = true }, showAddressBar: { showAddressBar = true })
+            StartPage(showSpaces: { showSpaces = true }, showAddressBar: { openAddressBar(editingTab: false) })
         }
+    }
+}
+
+/// Back, forward, the page's address (tap to go somewhere else in this tab)
+/// and reload.
+struct NavigationBar: View {
+    let page: WebPage
+    let onAddress: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button { page.goBack() } label: {
+                Image(systemName: "chevron.left").frame(width: 40, height: 36)
+            }
+            .disabled(!page.canGoBack)
+            .accessibilityLabel(Text("Back"))
+            .accessibilityIdentifier("backButton")
+            Button { page.goForward() } label: {
+                Image(systemName: "chevron.right").frame(width: 40, height: 36)
+            }
+            .disabled(!page.canGoForward)
+            .accessibilityLabel(Text("Forward"))
+            .accessibilityIdentifier("forwardButton")
+            Button(action: onAddress) {
+                Text(page.url.host ?? page.url.absoluteString)
+                    .font(.footnote)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .background(Capsule().fill(Color.primary.opacity(0.1)))
+            }
+            .accessibilityLabel(Text("Address"))
+            .accessibilityIdentifier("addressPill")
+            Button { page.reload() } label: {
+                Image(systemName: "arrow.clockwise").frame(width: 40, height: 36)
+            }
+            .accessibilityLabel(Text("Reload"))
+            .accessibilityIdentifier("reloadButton")
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 }
 
@@ -96,7 +162,6 @@ struct BottomBar: View {
         .foregroundStyle(Color.primary)
         .padding(.horizontal, 24)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
     }
 }
 
@@ -178,13 +243,14 @@ struct SyncPromptCard: View {
 }
 
 struct AddressBarView: View {
+    let placeholder: String
     let onSubmit: (URL) -> Void
     @State var text = ""
 
     var body: some View {
         VStack {
             HStack {
-                TextField("Search or enter address", text: $text)
+                TextField(placeholder, text: $text)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .onSubmit(submit)

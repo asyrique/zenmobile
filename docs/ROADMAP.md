@@ -32,11 +32,15 @@ real UI.
 
 ## M1 — Desktop tabs on the phone
 
-- Sign in (OAuth in our web view, or scan desktop's "Connect another device" QR code).
-- Account state in Keychain / Keystore.
-- Sync on launch, on foreground and on pull-to-refresh.
-- **Desktop tabs list** grouped by device → tap to open.
-- Minimal browser: one web view, address bar, back/forward, the Arc-style bottom bar.
+- [ ] Sign in (OAuth in our web view, or scan desktop's "Connect another device" QR code).
+- [x] Account state in Keychain (iOS) / encrypted preferences (Android), via
+      skip-keychain.
+- [ ] Sync on launch, on foreground and on pull-to-refresh.
+- [ ] **Desktop tabs list** grouped by device → tap to open.
+- [x] Minimal browser: address bar, back/forward/reload (and the Android back
+      button), the Arc-style bottom bar.
+- [x] Each tab keeps its page (WKWebView / GeckoSession) while other tabs are
+      shown, and tabs survive a restart.
 
 ## M2 — Zen Spaces
 

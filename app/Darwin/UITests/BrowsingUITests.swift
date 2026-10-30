@@ -1,8 +1,10 @@
 import XCTest
 
 /// End-to-end: launch the real app, open a page in WKWebView through the
-/// address bar, and check the page's title reaches our tab switcher.
-/// Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt.
+/// address bar, go to a second page in the same tab and back, check the
+/// page's title reaches our tab switcher, then relaunch and check the tab
+/// was restored. Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt
+/// (which can't relaunch the app it runs in).
 ///
 /// Screenshots of each step are attached to the result bundle and, when
 /// ZEN_SCREENSHOT_DIR is set (pass TEST_RUNNER_ZEN_SCREENSHOT_DIR to
@@ -15,6 +17,7 @@ final class BrowsingUITests: XCTestCase {
     private var url: String { environment["ZEN_E2E_URL"] ?? "http://127.0.0.1:8765/" }
     private var title: String { environment["ZEN_E2E_TITLE"] ?? "Zen E2E" }
     private var heading: String { environment["ZEN_E2E_HEADING"] ?? "Hello from Zen" }
+    private let secondHeading = "Second page"
 
     override func setUp() {
         continueAfterFailure = false
@@ -70,7 +73,21 @@ final class BrowsingUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         screenshot("page")
 
-        // The title travels WKWebView → navigation delegate → model → tab card.
+        // Somewhere else in the same tab, through its address, then back.
+        element("addressPill").tap()
+        let tabField = waitFor(app.textFields["addressField"])
+        tabField.tap()
+        tabField.typeText(url + "second.html")
+        element("addressGo").tap()
+        waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
+        Thread.sleep(forTimeInterval: 2)
+        screenshot("second-page")
+        waitFor(element("backButton")).tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
+        Thread.sleep(forTimeInterval: 2)
+        screenshot("back")
+
+        // The title travels WKWebView → KVO → page → tab card.
         element("tabsButton").tap()
         waitFor(app.staticTexts[title], timeout: 30)
         screenshot("tab-switcher")
@@ -79,5 +96,12 @@ final class BrowsingUITests: XCTestCase {
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))
         screenshot("spaces")
+
+        // Tabs survive a restart.
+        app.terminate()
+        app.launch()
+        waitFor(element("tabsButton"), timeout: 120).tap()
+        waitFor(app.staticTexts[title], timeout: 30)
+        screenshot("restored")
     }
 }

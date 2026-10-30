@@ -11,7 +11,7 @@ struct SignInView: View {
         Group {
             switch app.account {
             case let .signingIn(url):
-                ZenWebView(url: url, shouldCancel: { app.interceptSignInNavigation($0) })
+                SignInWebView(url: url, shouldCancel: { app.interceptSignInNavigation($0) })
             case .signedIn:
                 ProgressView().onAppear { dismiss() }
             case .signedOut, .needsReauthentication:
@@ -25,6 +25,20 @@ struct SignInView: View {
                 Task { await app.cancelSignIn() }
             }
         }
+    }
+}
+
+/// The sign-in page, in a page of its own for as long as the view is up.
+struct SignInWebView: View {
+    @State var page: WebPage
+
+    init(url: URL, shouldCancel: @escaping (URL) -> Bool) {
+        _page = State(initialValue: WebPage(url: url, shouldCancel: shouldCancel))
+    }
+
+    var body: some View {
+        ZenWebView(page: page)
+            .onDisappear { page.close() }
     }
 }
 

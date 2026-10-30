@@ -190,7 +190,7 @@ jobs:
             !app/.build/Android/app/outputs
             app/Android/.gradle
             ~/.gradle/caches
-          key: android-build-${{ hashFiles('app/Package.resolved', 'app/Sources/ZenMobile/Skip/skip.yml', 'app/Android/**/*.kts') }}
+          key: android-build-${{ hashFiles('app/Package.swift', 'app/Sources/ZenMobile/Skip/skip.yml', 'app/Android/**/*.kts') }}
           restore-keys: android-build-
       - uses: skiptools/actions/setup-skip@v1
         with:

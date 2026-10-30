@@ -17,7 +17,9 @@ import org.junit.runner.RunWith
 
 /**
  * End-to-end: launch the real app, open a page in GeckoView through the
- * address bar, and check the page's title reaches our tab switcher.
+ * address bar, go to a second page in the same tab and back, and check the
+ * page titles reach our tab switcher. (Unlike the iOS test, it can't check
+ * tabs survive a restart: the test runs inside the app's process.)
  *
  * Driven from outside the app with UiAutomator, using the SwiftUI
  * accessibilityIdentifiers (Skip exposes them as resource ids). Screenshots
@@ -35,6 +37,7 @@ class BrowsingTest {
     private val args = InstrumentationRegistry.getArguments()
     private val url = args.getString("url") ?: "http://127.0.0.1:8765/"
     private val title = args.getString("title") ?: "Zen E2E"
+    private val secondTitle = "Zen E2E second"
     private val screenshots = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
     private var step = 0
 
@@ -84,7 +87,27 @@ class BrowsingTest {
         Thread.sleep(10_000)
         screenshot("page")
 
-        // The title travels GeckoView → Kotlin delegate → Swift model → tab card.
+        // Somewhere else in the same tab, through its address.
+        waitFor(By.res("addressPill")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text ${url}second.html")
+        waitFor(By.res("addressGo").enabled(true), 10_000).click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        // Back becomes possible once Gecko reports the new history entry.
+        waitFor(By.res("backButton").enabled(true), 60_000)
+        Thread.sleep(5_000)
+        screenshot("second-page")
+
+        // The title travels GeckoView → Kotlin delegate → Swift page → tab card.
+        waitFor(By.res("tabsButton")).click()
+        waitFor(By.text(secondTitle), 60_000)
+        device.pressBack()
+
+        waitFor(By.res("backButton").enabled(true)).click()
+        waitFor(By.res("forwardButton").enabled(true), 60_000)
+        Thread.sleep(5_000)
+        screenshot("back")
         waitFor(By.res("tabsButton")).click()
         waitFor(By.text(title), 60_000)
         screenshot("tab-switcher")

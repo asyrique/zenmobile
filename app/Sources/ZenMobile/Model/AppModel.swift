@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SkipFuse
+import SkipKeychain
 import ZenCore
 
 /// Owns the Firefox account, the synced stores and the sync loop, and
@@ -27,7 +28,6 @@ import ZenCore
     private let tabsStore: TabsStore
     private let spacesStore: ZenSpacesStore
     private let syncManager: ZenSyncManager
-    private let secrets = SecretStore(service: "io.github.asyrique.zenmobile.fxa")
     private let deviceName: String
 
     init(dataDirectory: URL, deviceName: String) {
@@ -43,15 +43,42 @@ import ZenCore
             spacesStore = try! ZenSpacesStore(path: spacesPath)
         }
         syncManager = ZenSyncManager(tabs: tabsStore, spaces: spacesStore)
-        fxa = Self.restoreAccount(from: secrets)
+        fxa = Self.restoreAccount()
         reloadLocalData()
     }
 
-    private static func restoreAccount(from secrets: SecretStore) -> FirefoxAccount {
-        if let json = secrets.read(), let restored = try? FirefoxAccount.fromJson(data: json) {
-            return restored
+    // MARK: Saved account
+
+    /// The serialized account (refresh token and sync keys) lives in the
+    /// Keychain on iOS and in encrypted preferences on Android, never in
+    /// UserDefaults or a plain file.
+    private static let accountKey = "io.github.asyrique.zenmobile.fxa.account"
+
+    private static func restoreAccount() -> FirefoxAccount {
+        do {
+            if let json = try Keychain.shared.string(forKey: accountKey) {
+                return try FirefoxAccount.fromJson(data: json)
+            }
+        } catch {
+            logger.error("Restoring the Firefox account failed: \(error)")
         }
         return FirefoxAccount(config: zenFxaConfig())
+    }
+
+    private func persistAccount() {
+        do {
+            try Keychain.shared.set(try fxa.toJson(), forKey: Self.accountKey, access: .firstUnlockThisDeviceOnly)
+        } catch {
+            logger.error("Saving the Firefox account failed: \(error)")
+        }
+    }
+
+    private func forgetAccount() {
+        do {
+            try Keychain.shared.removeValue(forKey: Self.accountKey)
+        } catch {
+            logger.error("Removing the Firefox account failed: \(error)")
+        }
     }
 
     // MARK: Account
@@ -99,7 +126,7 @@ import ZenCore
     func signOut() async {
         let state = await run { try $0.processEvent(event: .disconnect) }
         syncManager.disconnect()
-        secrets.delete()
+        forgetAccount()
         UserDefaults.standard.removeObject(forKey: Self.syncStateKey)
         await apply(state)
         reloadLocalData()
@@ -132,12 +159,6 @@ import ZenCore
             account = .needsReauthentication
         }
         persistAccount()
-    }
-
-    private func persistAccount() {
-        if let json = try? fxa.toJson() {
-            secrets.write(json)
-        }
     }
 
     // MARK: Sync

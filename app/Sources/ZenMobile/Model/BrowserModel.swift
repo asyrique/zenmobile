@@ -4,22 +4,38 @@ import Observation
 // without this the Android UI never sees tabs open.
 import SkipFuse
 
-/// The phone's own tabs.
+/// The phone's own tabs, saved so they survive a restart.
 @MainActor @Observable final class BrowserModel {
-    struct Tab: Identifiable, Equatable {
+    struct Tab: Identifiable {
         let id = UUID()
-        var url: URL
-        var title: String
+        /// The live page; it keeps the tab's history while the tab is open.
+        let page: WebPage
         /// Set when the tab was opened from a desktop pin or Essential, so
         /// tapping the same pin again returns here instead of opening a new tab.
         var zenTabId: String?
+
+        var url: URL { page.url }
+
+        var title: String {
+            page.title.isEmpty ? (page.url.host ?? page.url.absoluteString) : page.title
+        }
     }
 
     private(set) var tabs: [Tab] = []
-    var selectedTabId: UUID?
+    var selectedTabId: UUID? {
+        didSet { save() }
+    }
 
     var selectedTab: Tab? {
         tabs.first { $0.id == selectedTabId }
+    }
+
+    /// Where the open tabs are saved; nil keeps them in memory only.
+    @ObservationIgnored private let storeURL: URL?
+
+    init(storeURL: URL? = nil) {
+        self.storeURL = storeURL
+        restore()
     }
 
     func open(_ url: URL, title: String = "", zenTabId: String? = nil) {
@@ -27,26 +43,67 @@ import SkipFuse
             selectedTabId = existing.id
             return
         }
-        let tab = Tab(url: url, title: title.isEmpty ? (url.host ?? url.absoluteString) : title, zenTabId: zenTabId)
+        let tab = Tab(page: makePage(url: url, title: title), zenTabId: zenTabId)
         tabs.append(tab)
         selectedTabId = tab.id
     }
 
     func close(_ id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        tabs[index].page.close()
         tabs.remove(at: index)
         if selectedTabId == id {
             selectedTabId = tabs.isEmpty ? nil : tabs[max(0, index - 1)].id
+        } else {
+            save()
         }
     }
 
-    func didNavigate(_ id: UUID, to url: URL, title: String?) {
-        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
-        tabs[index].url = url
-        if let title, !title.isEmpty {
-            tabs[index].title = title
+    private func makePage(url: URL, title: String) -> WebPage {
+        let page = WebPage(url: url, title: title)
+        // Pages change as the user browses; save each change, so a tab
+        // reopens where it was even if the app is killed.
+        page.onChange = { [weak self] in self?.save() }
+        return page
+    }
+
+    // MARK: Saving
+
+    private struct SavedTab: Codable {
+        var url: URL
+        var title: String
+        var zenTabId: String?
+    }
+
+    private struct SavedTabs: Codable {
+        var tabs: [SavedTab]
+        var selected: Int?
+    }
+
+    private func save() {
+        guard let storeURL else { return }
+        let saved = SavedTabs(
+            tabs: tabs.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId) },
+            selected: tabs.firstIndex { $0.id == selectedTabId })
+        do {
+            try JSONEncoder().encode(saved).write(to: storeURL, options: .atomic)
+        } catch {
+            logger.error("Saving tabs failed: \(error)")
         }
     }
+
+    private func restore() {
+        guard let storeURL, let data = try? Data(contentsOf: storeURL) else { return }
+        guard let saved = try? JSONDecoder().decode(SavedTabs.self, from: data) else {
+            logger.error("Saved tabs are unreadable; starting with none")
+            return
+        }
+        // Restored pages load when first shown.
+        tabs = saved.tabs.map { Tab(page: makePage(url: $0.url, title: $0.title), zenTabId: $0.zenTabId) }
+        selectedTabId = saved.selected.flatMap { tabs.indices.contains($0) ? tabs[$0].id : nil }
+    }
+
+    // MARK: Input
 
     /// Turns what the user typed into a URL: a URL if it looks like one,
     /// otherwise a search.

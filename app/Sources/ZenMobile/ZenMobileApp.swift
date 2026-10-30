@@ -20,7 +20,7 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Kotlin side never sees them.
 struct RootContent: View {
     @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
-    @State var browser = BrowserModel()
+    @State var browser = BrowserModel(storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"))
 
     var body: some View {
         NavigationStack {
