@@ -75,7 +75,7 @@ private final class ZenGeckoRuntime {
 /// A tab's GeckoSession. It outlives the GeckoView showing it: the view is
 /// created when the tab is shown and lets go of the session when hidden.
 final class GeckoTab {
-    private let session = GeckoSession()
+    private let session: GeckoSession = GeckoSession()
     private let delegate: ZenGeckoDelegate
     /// What to load when the session first opens.
     private var initialURL: URL
