@@ -28,8 +28,9 @@ with screenshots in the CI run. Constraints:
      against a macOS slice of the Rust core.
    - **iOS:** NSS for iOS, the xcframework, then the app plus its XCUITest on a simulator
      (`xcodebuild test`).
-   - **Android:** NSS for Android, `libzen_core.so`, the APK (`skip export`) and the test
-     APK. Both APKs are built and debug-signed in the same job.
+   - **Android:** NSS for Android, `libzen_core.so`, then the APK and the test APK in one
+     Gradle build, which runs Skip itself. Both are arm64 only and debug-signed in the
+     same job.
    - **Screenshots:** publishes each run's end-to-end screenshots.
 2. **The Android end-to-end test runs in [Redroid](https://github.com/remote-android/redroid-doc)
    on `ubuntu-24.04-arm`.** Redroid runs Android as a container sharing the host's Linux
@@ -74,11 +75,16 @@ with screenshots in the CI run. Constraints:
 - The Android test depends on GitHub's arm64 kernel keeping the Binder module, and on the
   Redroid image (`redroid/redroid:14.0.0-latest`, overridable via `REDROID_IMAGE`). If
   either goes away, the fallback is the x86_64 emulator with a dedicated x86_64 build.
-- macOS runners are slower (3 CPU) than Linux ones and have less disk. NSS builds are
-  cached per platform, and the Android job caches Skip's build folder and Gradle's
-  dependencies, so a run only recompiles our own modules. The CI APK carries line-table
-  debug info (`skip export --debug-info line-tables`): enough for crash backtraces, and
-  much faster to build and package than full debug info.
+- macOS runners are slower (3 CPU) than Linux ones and have less disk. To keep runs
+  reasonable:
+  - NSS builds are cached per platform.
+  - The Android job caches Skip's build folder and Gradle's dependencies, so a run only
+    recompiles our own modules (the APK step went from ~20 minutes to a few).
+  - The APK packages `arm64-v8a` only; GeckoView otherwise adds its x86_64 and
+    armeabi-v7a libraries.
+  - Native libraries carry line-table debug info (what `skip export --debug-info
+    line-tables` sets): enough for crash backtraces, faster to build than full debug
+    info.
 - Screenshots depend on the repository staying public. A private repo would need
   artifacts instead of inline images.
 - `app/AppIcon.svg` and the vector Android launcher icon were made while icons couldn't

@@ -187,6 +187,7 @@ jobs:
         with:
           path: |
             app/.build
+            !app/.build/Android/app/outputs
             app/Android/.gradle
             ~/.gradle/caches
           key: android-build-${{ hashFiles('app/Package.resolved', 'app/Sources/ZenMobile/Skip/skip.yml', 'app/Android/**/*.kts') }}
@@ -200,42 +201,26 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platforms;android-37.2" "build-tools;37.0.0" > /dev/null
-      - name: Build APK
-        working-directory: app
+      # Gradle runs Skip itself (transpile, then the Android Swift build) and
+      # builds both APKs in one go. Skip builds debug native libraries for
+      # the host architecture (arm64), the only one we ship.
+      - name: Build APKs
+        env:
+          # What `skip export --debug-info line-tables` passes to Gradle:
+          # line tables instead of full debug info for the native libraries,
+          # faster to build and package, still enough for crash backtraces.
+          SKIP_EXPORT_DEBUG_INFO: line-tables
         run: |
-          # line-tables: file and line debug info for the native libraries
-          # instead of full type info, much faster to build and package.
-          if ! skip export --debug --no-ios --arch aarch64 --debug-info line-tables --no-export-project -d ../build/skip-export --plain; then
-            # Skip keeps the details in its own log; surface the failure.
-            mkdir -p ../build/logs
-            for log in "${TMPDIR:-/tmp}"/skip-export-*.txt /tmp/skip-export-*.txt; do
-              [ -f "$log" ] || continue
-              grep -nE "^e: |error:" "$log" | head -40
-              grep -A60 "What went wrong" "$log"
-              # Artifact names can't contain the colons in Skip's timestamp.
-              cp "$log" "../build/logs/$(basename "$log" | tr ':' '-')"
-            done
-            exit 1
-          fi
-      - name: Build end-to-end test APK
-        run: |
-          gradle :app:assembleDebugAndroidTest --project-dir app/Android --console=plain
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest --project-dir app/Android --console=plain
           mkdir -p build/android
-          cp build/skip-export/*.apk build/android/
-          # The app module's test APK (each Skip module has its own).
-          cp "$(find app -path '*/app/outputs/apk/androidTest/debug/*' -name '*.apk' | head -1)" build/android/e2e-androidTest.apk
+          cp app/.build/Android/app/outputs/apk/debug/app-debug.apk build/android/ZenMobile-debug.apk
+          cp app/.build/Android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk build/android/e2e-androidTest.apk
           ls -la build/android
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/android
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: skip-export-logs
-          path: build/logs
-          if-no-files-found: ignore
 
   # Runs the APK users download (from the android job, unmodified) on
   # arm64 Android. GitHub's runners can't run the Android emulator (no
