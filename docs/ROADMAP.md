@@ -17,15 +17,16 @@ real UI.
       a live OAuth flow start against accounts.firefox.com.
 - [x] Rust core, the ZenCore Swift package and the whole Skip Fuse app (SwiftUI
       views included) built for Android arm64 with the Swift Android SDK.
-- [ ] NSS built for iOS and Android (`application-services/libs/build-all.sh`), and
-      `scripts/build-core-{ios,android}.sh` producing the xcframework and `.so` files.
+- [x] NSS built for iOS and Android (`scripts/build-nss.sh`), and
+      `scripts/build-core-{apple,android}.sh` producing the xcframework and `.so` files.
 - [x] App generated with `skip init` (Skip 1.9.20); first cut of the browser, Space
       sheet, tab switcher, desktop tabs and sign-in views.
 - [x] The Android APK launches and renders natively on arm64 Android (Redroid in CI).
-- [ ] End-to-end browsing test green on iOS (simulator) and Android (Redroid).
+- [x] End-to-end browsing test green on iOS (simulator) and Android (Redroid).
 - [ ] Sign in and see desktop tabs on a device.
-- [ ] GeckoView embedded in a Skip view: load a URL, observe navigations, intercept
-      the OAuth redirect. The code compiles into the APK; not yet run on a device.
+- [x] GeckoView embedded in a Skip view: loads a URL and reports the page title
+      (checked by the Android end-to-end test).
+- [ ] GeckoView intercepts the OAuth redirect (needs a real sign-in).
 - [x] CI on macos-latest (arm64 only): Rust + Swift tests, the iOS app, and the
       Android APK (Gradle + GeckoView, Kotlin from Skip).
 

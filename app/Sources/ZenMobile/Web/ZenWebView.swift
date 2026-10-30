@@ -107,11 +107,8 @@ struct WebKitView: UIViewRepresentable {
 
 #if SKIP
 // Kotlin side (transpiled by Skip). GeckoView needs one GeckoRuntime per
-// process and one GeckoSession per tab.
-//
-// PROTOTYPE (Roadmap M0): written against GeckoView 159's API but not yet
-// built. What to check first on a Mac: that the closures cross the
-// Swift↔Kotlin bridge, and the delegate override signatures.
+// process and one GeckoSession per tab. The Android end-to-end test
+// (Redroid in CI) loads a page through this.
 import androidx.compose.ui.viewinterop.AndroidView
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -169,9 +166,7 @@ struct GeckoContentComposer : ContentComposer {
     }
 
     @Composable func Compose(context: ComposeContext) {
-        android.util.Log.i("ZenWebView", "Compose: \(url.absoluteString)")
         AndroidView(factory: { ctx in
-            android.util.Log.i("ZenWebView", "creating GeckoView")
             let view = GeckoView(ctx)
             do {
                 let delegate = ZenNavigationDelegate(shouldCancel: shouldCancel, didNavigate: didNavigate)
@@ -182,7 +177,6 @@ struct GeckoContentComposer : ContentComposer {
                 session.open(ZenGeckoRuntime.get(ctx))
                 view.setSession(session)
                 session.loadUri(url.absoluteString)
-                android.util.Log.i("ZenWebView", "loading \(url.absoluteString)")
             } catch {
                 android.util.Log.e("ZenWebView", "GeckoView setup failed: \(error)")
             }
