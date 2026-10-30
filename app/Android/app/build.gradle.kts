@@ -40,6 +40,11 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.sdk.min.get().toInt()
         targetSdk = libs.versions.android.sdk.compile.get().toInt()
+        // We ship arm64 only; without this the APK also carries GeckoView's
+        // x86_64 and armeabi-v7a libraries (~300 MB in a debug build).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
         // skip.tools.skip-build-plugin will automatically use Skip.env properties for:
         // applicationId = ANDROID_APPLICATION_ID ?? PRODUCT_BUNDLE_IDENTIFIER
         // versionCode = CURRENT_PROJECT_VERSION
