@@ -42,6 +42,8 @@ class BrowsingTest {
     val onFailure = object : TestWatcher() {
         override fun failed(e: Throwable?, description: Description?) {
             screenshot("failure")
+            // What was on screen, for working out why a selector never matched.
+            device.dumpWindowHierarchy(File(screenshots, "failure-hierarchy.xml"))
         }
     }
 

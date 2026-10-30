@@ -42,6 +42,8 @@ struct BrowserView: View {
             ZenWebView(url: tab.url, didNavigate: { url, title in
                 browser.didNavigate(tab.id, to: url, title: title)
             })
+            // Android's AndroidView sizes to its content unless told to fill.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .id(tab.id)
             .accessibilityIdentifier("webContent")
         } else {

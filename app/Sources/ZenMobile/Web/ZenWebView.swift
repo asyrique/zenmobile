@@ -19,6 +19,7 @@ struct ZenWebView {
 
 extension ZenWebView: View {
     var body: some View {
+        let _ = logger.info("ZenWebView: showing \(url.absoluteString)")
         ComposeView {
             GeckoContentComposer(url: url, shouldCancel: shouldCancel, didNavigate: didNavigate)
         }
@@ -158,16 +159,23 @@ struct GeckoContentComposer : ContentComposer {
     }
 
     @Composable func Compose(context: ComposeContext) {
+        android.util.Log.i("ZenWebView", "Compose: \(url.absoluteString)")
         AndroidView(factory: { ctx in
-            let delegate = ZenNavigationDelegate(shouldCancel: shouldCancel, didNavigate: didNavigate)
-            delegate.currentURL = url
-            let session = GeckoSession()
-            session.navigationDelegate = delegate
-            session.contentDelegate = delegate
-            session.open(ZenGeckoRuntime.get(ctx))
+            android.util.Log.i("ZenWebView", "creating GeckoView")
             let view = GeckoView(ctx)
-            view.setSession(session)
-            session.loadUri(url.absoluteString)
+            do {
+                let delegate = ZenNavigationDelegate(shouldCancel: shouldCancel, didNavigate: didNavigate)
+                delegate.currentURL = url
+                let session = GeckoSession()
+                session.navigationDelegate = delegate
+                session.contentDelegate = delegate
+                session.open(ZenGeckoRuntime.get(ctx))
+                view.setSession(session)
+                session.loadUri(url.absoluteString)
+                android.util.Log.i("ZenWebView", "loading \(url.absoluteString)")
+            } catch {
+                android.util.Log.e("ZenWebView", "GeckoView setup failed: \(error)")
+            }
             return view
         }, modifier: context.modifier, update: { view in
         })
