@@ -69,7 +69,7 @@ struct PasswordsView: View {
 
 /// The list, apart from the search field so typing doesn't re-render the
 /// field (which drops the keyboard on Android).
-private struct SavedLoginsList: View {
+struct SavedLoginsList: View {
     @Environment(Logins.self) var logins
     let query: String
 
