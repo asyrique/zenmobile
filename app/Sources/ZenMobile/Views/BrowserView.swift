@@ -18,12 +18,19 @@ struct BrowserView: View {
     /// Where the address bar asked to go, carried out once it has closed.
     @State var addressBarDestination: (url: URL, isPrivate: Bool)?
     @State var findingInPage = false
+    @State var sendingTab = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             content
                 .ignoresSafeArea(edges: .top)
             VStack(spacing: 0) {
+                if let notice = browser.receivedNotice {
+                    ReceivedTabsBanner(
+                        message: notice,
+                        onShow: { browser.showReceived() },
+                        onDismiss: { browser.dismissReceivedNotice() })
+                }
                 if let tab = browser.selectedTab {
                     if findingInPage {
                         FindBar(page: tab.page, onDone: { findingInPage = false })
@@ -31,7 +38,8 @@ struct BrowserView: View {
                         NavigationBar(
                             page: tab.page,
                             onAddress: { openAddressBar(editingTab: true) },
-                            onFind: { findingInPage = true })
+                            onFind: { findingInPage = true },
+                            onSend: { sendingTab = true })
                     }
                 }
                 BottomBar(
@@ -50,6 +58,11 @@ struct BrowserView: View {
         }
         .sheet(isPresented: $showTabs) {
             TabSwitcherView()
+        }
+        .sheet(isPresented: $sendingTab) {
+            if let tab = browser.selectedTab {
+                SendTabView(url: tab.url, title: tab.title)
+            }
         }
         .sheet(isPresented: showsPrompt) {
             if let page = browser.selectedTab?.page, let prompt = page.prompt {
@@ -115,9 +128,11 @@ struct BrowserView: View {
 /// reload or stop, and share; with the load's progress along the top.
 struct NavigationBar: View {
     @Environment(Places.self) var places
+    @Environment(AppModel.self) var app
     let page: WebPage
     let onAddress: () -> Void
     let onFind: () -> Void
+    let onSend: () -> Void
     @State var isBookmarked = false
 
     var body: some View {
@@ -184,6 +199,10 @@ struct NavigationBar: View {
                         Task { isBookmarked = await places.toggleBookmark(url, title: title) }
                     }
                     Button("Find in page", action: onFind)
+                    // Needs the account; private pages stay on this device.
+                    if case .signedIn = app.account, !page.isPrivate {
+                        Button("Send to device", action: onSend)
+                    }
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 36, height: 36)
                 }
@@ -195,6 +214,36 @@ struct NavigationBar: View {
         }
         .foregroundStyle(Color.primary)
         .task(id: page.url) { isBookmarked = await places.isBookmarked(page.url) }
+    }
+}
+
+/// Tabs other devices sent: a notice above the bars, with Show.
+struct ReceivedTabsBanner: View {
+    let message: String
+    let onShow: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZenSymbolImage(symbol: .desktop, size: 20)
+            Text(message)
+                .font(.subheadline)
+                .lineLimit(1)
+                .accessibilityIdentifier("receivedTabsMessage")
+            Spacer()
+            Button("Show", action: onShow)
+                .accessibilityIdentifier("receivedTabsShow")
+            Button(action: onDismiss) {
+                Image(systemName: "xmark").frame(width: 32, height: 32)
+            }
+            .accessibilityLabel(Text("Dismiss"))
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(Color.primary.opacity(0.12)))
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 }
 

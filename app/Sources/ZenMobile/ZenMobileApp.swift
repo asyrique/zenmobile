@@ -19,6 +19,7 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Holds the app-wide models; kept out of the bridged root view so the
 /// Kotlin side never sees them.
 struct RootContent: View {
+    @Environment(\.scenePhase) var scenePhase
     @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
     @State var downloads: Downloads
     @State var places: Places
@@ -46,7 +47,15 @@ struct RootContent: View {
         .preferredColorScheme(.dark)
         .task {
             await TrackerBlocking.apply()
+            // Tabs other devices send here open in the background.
+            app.onTabsReceived = { [browser] tabs in browser.receive(tabs) }
+            app.onTabsClosed = { [browser] urls in browser.closeTabs(at: urls) }
             await app.start()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await app.didBecomeActive() }
+            }
         }
     }
 

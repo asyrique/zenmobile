@@ -56,6 +56,42 @@ import SkipFuse
         selectedTabId = tab.id
     }
 
+    // MARK: Tabs from other devices
+
+    /// What arrived from other devices, until shown or dismissed.
+    private(set) var receivedNotice: String?
+    @ObservationIgnored private var lastReceivedTabId: UUID?
+
+    /// Adds tabs another device sent, in the background, with a notice.
+    func receive(_ received: [AppModel.ReceivedTab]) {
+        for item in received {
+            let tab = Tab(page: makePage(url: item.url, title: item.title), zenTabId: nil)
+            tabs.append(tab)
+            lastReceivedTabId = tab.id
+        }
+        save()
+        let sender = received.last?.sender ?? "another device"
+        receivedNotice = received.count == 1 ? "Tab from \(sender)" : "\(received.count) tabs from \(sender)"
+    }
+
+    func showReceived() {
+        if let id = lastReceivedTabId, tabs.contains(where: { $0.id == id }) {
+            selectedTabId = id
+        }
+        receivedNotice = nil
+    }
+
+    func dismissReceivedNotice() {
+        receivedNotice = nil
+    }
+
+    /// Closes the tabs another device asked to close here.
+    func closeTabs(at urls: [URL]) {
+        for tab in tabs where urls.contains(tab.url) {
+            close(tab.id)
+        }
+    }
+
     func close(_ id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs[index].page.close()
