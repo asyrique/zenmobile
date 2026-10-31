@@ -44,7 +44,10 @@ struct RootContent: View {
         .environment(downloads)
         .environment(places)
         .preferredColorScheme(.dark)
-        .task { await app.start() }
+        .task {
+            await TrackerBlocking.apply()
+            await app.start()
+        }
     }
 
     static func dataDirectory() -> URL {

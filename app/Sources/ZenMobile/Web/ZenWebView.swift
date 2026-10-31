@@ -54,22 +54,50 @@ struct WebKitView: UIViewRepresentable {
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.viewinterop.AndroidView
 import org.mozilla.geckoview.AllowOrDeny
+import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 
-private final class ZenGeckoRuntime {
+final class ZenGeckoRuntime {
+    // SKIP @nobridge
     static var shared: GeckoRuntime? = nil
 
+    // SKIP @nobridge
     static func get(_ context: android.content.Context) -> GeckoRuntime {
         if let runtime = shared {
             return runtime
         }
-        let runtime = GeckoRuntime.create(context.applicationContext)
+        let settings = GeckoRuntimeSettings.Builder()
+            .contentBlocking(ContentBlocking.Settings.Builder()
+                .antiTracking(trackingProtection)
+                .enhancedTrackingProtectionLevel(etpLevel)
+                .build())
+            .build()
+        let runtime = GeckoRuntime.create(context.applicationContext, settings)
         shared = runtime
         return runtime
+    }
+
+    /// Applies TrackerBlocking's setting to the running runtime.
+    // SKIP @nobridge
+    static func applyTrackingProtection() {
+        guard let runtime = shared else { return }
+        runtime.settings.contentBlocking.setAntiTracking(trackingProtection)
+        runtime.settings.contentBlocking.setEnhancedTrackingProtectionLevel(etpLevel)
+    }
+
+    // Firefox's standard protection (trackers, social, cryptominers,
+    // fingerprinters), or none.
+    private static var trackingProtection: Int {
+        GeckoTrackingProtection.enabled ? ContentBlocking.AntiTracking.DEFAULT : ContentBlocking.AntiTracking.NONE
+    }
+
+    private static var etpLevel: Int {
+        GeckoTrackingProtection.enabled ? ContentBlocking.EtpLevel.DEFAULT : ContentBlocking.EtpLevel.NONE
     }
 }
 

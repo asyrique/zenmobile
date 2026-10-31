@@ -300,8 +300,13 @@ struct FindResult: Equatable {
         if page.isPrivate {
             configuration.websiteDataStore = Self.privateDataStore
         }
+        if let trackers = ContentBlocker.shared.ruleList {
+            configuration.userContentController.add(trackers)
+        }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        // The tracker list arrives after launch, and the setting can change.
+        NotificationCenter.default.addObserver(self, selector: #selector(trackerRulesChanged), name: ContentBlocker.didChange, object: nil)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -333,6 +338,14 @@ struct FindResult: Equatable {
                 MainActor.assumeIsolated { self?.page?.didChange(isSecure: webView.hasOnlySecureContent) }
             },
         ]
+    }
+
+    @objc private func trackerRulesChanged() {
+        let rules = webView.configuration.userContentController
+        rules.removeAllContentRuleLists()
+        if let trackers = ContentBlocker.shared.ruleList {
+            rules.add(trackers)
+        }
     }
 
     private func reportHistory(_ webView: WKWebView) {
