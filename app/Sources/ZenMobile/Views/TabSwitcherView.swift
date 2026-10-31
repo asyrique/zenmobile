@@ -1,8 +1,8 @@
 import SwiftUI
 import ZenCore
 
-/// The phone's tabs as paged cards (Arc Search's switcher), with the
-/// desktop-tabs button bottom-left.
+/// The phone's tabs as paged cards (Arc Search's switcher), opening on the
+/// current one, with the desktop-tabs button bottom-left.
 struct TabSwitcherView: View {
     @Environment(BrowserModel.self) var browser
     @Environment(\.dismiss) var dismiss
@@ -16,13 +16,21 @@ struct TabSwitcherView: View {
                     Text("No open tabs").foregroundStyle(.secondary)
                     Spacer()
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 16) {
-                            ForEach(browser.tabs) { tab in
-                                card(tab)
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 16) {
+                                ForEach(browser.tabs) { tab in
+                                    card(tab)
+                                }
+                            }
+                            .padding(24)
+                        }
+                        // Open on the current tab.
+                        .onAppear {
+                            if let selected = browser.selectedTabId {
+                                proxy.scrollTo(selected, anchor: .center)
                             }
                         }
-                        .padding(24)
                     }
                 }
                 HStack {
