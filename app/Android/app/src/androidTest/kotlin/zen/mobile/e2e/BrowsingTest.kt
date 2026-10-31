@@ -68,6 +68,20 @@ class BrowsingTest {
         return waitFor(By.text(text), 10_000)
     }
 
+    /** The first of [selectors] to appear; on failure, saves the screen's hierarchy. */
+    private fun findAny(vararg selectors: BySelector, timeoutMs: Long = 30_000): UiObject2 {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            for (selector in selectors) {
+                device.findObject(selector)?.let { return it }
+            }
+            Thread.sleep(500)
+        }
+        // Saved with the screenshots, which CI uploads.
+        File(screenshots, "hierarchy.xml").outputStream().use { device.dumpWindowHierarchy(it) }
+        throw AssertionError("Timed out after ${timeoutMs}ms waiting for any of ${selectors.toList()}")
+    }
+
     private fun waitFor(selector: BySelector, timeoutMs: Long = 30_000): UiObject2 =
         device.wait(Until.findObject(selector), timeoutMs)
             ?: throw AssertionError("Timed out after ${timeoutMs}ms waiting for $selector")
@@ -107,7 +121,9 @@ class BrowsingTest {
         waitFor(By.text("Confirmed"), 30_000)
 
         // A <select> menu opens the app's list; the choice reaches the page.
-        waitFor(By.text("Apple"), 30_000).click()
+        // Gecko exposes a collapsed <select> as a combo box (a Spinner) named
+        // by its label; its text depends on the version.
+        findAny(By.clazz("android.widget.Spinner"), By.desc("Fruit"), By.text("Fruit"), By.text("Apple")).click()
         waitFor(By.res("promptChoice").text("Banana"), 30_000).click()
         waitFor(By.text("Chose Banana"), 30_000)
 
