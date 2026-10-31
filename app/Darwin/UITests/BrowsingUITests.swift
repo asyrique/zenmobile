@@ -82,14 +82,25 @@ final class BrowsingUITests: XCTestCase {
         element("promptOK").tap()
         waitFor(app.webViews.staticTexts["Confirmed"], timeout: 30)
 
-        // A download lands in Downloads (tab switcher → Downloads).
+        // Bookmark the page from the page menu.
+        waitFor(element("pageMenu")).tap()
+        waitFor(app.buttons["Add bookmark"]).tap()
+
+        // A download lands in Downloads (tab switcher → Library → Downloads),
+        // and the bookmark in Mobile Bookmarks (Library → Bookmarks).
         waitFor(app.webViews.links["Download a file"]).tap()
         element("tabsButton").tap()
+        waitFor(element("libraryButton")).tap()
         waitFor(element("downloadsButton")).tap()
         let download = waitFor(app.staticTexts.matching(identifier: "downloadName").firstMatch, timeout: 60)
         XCTAssertEqual(download.label, "zen-e2e.bin")
         screenshot("downloads")
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        waitFor(element("bookmarksButton")).tap()
+        waitFor(app.buttons["Mobile Bookmarks"]).tap()
+        let bookmark = waitFor(app.staticTexts.matching(identifier: "bookmarkTitle").firstMatch)
+        XCTAssertEqual(bookmark.label, title)
+        screenshot("bookmarks")
         app.swipeDown(velocity: .fast)
 
         // Find in page (WebKit only says whether there's a match).
@@ -101,6 +112,16 @@ final class BrowsingUITests: XCTestCase {
         XCTAssertEqual(waitFor(element("findStatus")).label, "Found")
         screenshot("find")
         element("findDone").tap()
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(element("newTabButton")).tap()
+        let suggestField = waitFor(app.textFields["addressField"])
+        suggestField.tap()
+        suggestField.typeText("Zen")
+        let suggestion = waitFor(app.buttons.matching(identifier: "suggestion").firstMatch, timeout: 30)
+        screenshot("suggestions")
+        suggestion.tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
 
         // Somewhere else in the same tab, through its address, then back.
         // The address bar starts with the page's address; clear it first.

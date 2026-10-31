@@ -21,14 +21,18 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 struct RootContent: View {
     @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
     @State var downloads: Downloads
+    @State var places: Places
     @State var browser: BrowserModel
 
     @MainActor init() {
         let downloads = Downloads(directory: Downloads.defaultDirectory())
+        let places = Places(path: RootContent.dataDirectory().appendingPathComponent("places.db").path)
         _downloads = State(initialValue: downloads)
+        _places = State(initialValue: places)
         _browser = State(initialValue: BrowserModel(
             storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"),
-            downloads: downloads))
+            downloads: downloads,
+            places: places))
     }
 
     var body: some View {
@@ -38,6 +42,7 @@ struct RootContent: View {
         .environment(app)
         .environment(browser)
         .environment(downloads)
+        .environment(places)
         .preferredColorScheme(.dark)
         .task { await app.start() }
     }

@@ -64,6 +64,10 @@ struct FindResult: Equatable {
     let shouldCancel: (URL) -> Bool
     /// Called when the URL or title changes, for saving the tab.
     @ObservationIgnored var onChange: (() -> Void)?
+    /// Called when the page goes to a new URL, and when its title changes,
+    /// for history.
+    @ObservationIgnored var onVisit: ((URL) -> Void)?
+    @ObservationIgnored var onTitle: ((String, URL) -> Void)?
     /// Called when the page opens a new window (a target=_blank link,
     /// window.open); the browser opens it as a new tab.
     @ObservationIgnored var onOpenWindow: ((URL) -> Void)?
@@ -72,6 +76,9 @@ struct FindResult: Equatable {
     @ObservationIgnored var downloads: Downloads?
     @ObservationIgnored private var promptAnswer: ((Bool, String?) -> Void)?
     @ObservationIgnored private var promptCount = 0
+    /// Whether the page has reported a location yet; its first one is a
+    /// visit even when it's the URL the tab was opened with.
+    @ObservationIgnored private var visited = false
 
     init(url: URL, title: String = "", isPrivate: Bool = false, shouldCancel: @escaping (URL) -> Bool = { _ in false }) {
         self.url = url
@@ -177,15 +184,18 @@ struct FindResult: Equatable {
     // MARK: Engine callbacks
 
     fileprivate func didChange(url: URL) {
-        guard url != self.url else { return }
+        guard url != self.url || !visited else { return }
         self.url = url
+        visited = true
         onChange?()
+        onVisit?(url)
     }
 
     fileprivate func didChange(title: String?) {
         guard let title, !title.isEmpty, title != self.title else { return }
         self.title = title
         onChange?()
+        onTitle?(title, url)
     }
 
     fileprivate func didChange(canGoBack: Bool, canGoForward: Bool) {

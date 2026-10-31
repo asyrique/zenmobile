@@ -105,14 +105,25 @@ class BrowsingTest {
         waitFor(By.res("promptOK")).click()
         waitFor(By.text("Confirmed"), 30_000)
 
-        // A download lands in Downloads (tab switcher → Downloads).
+        // Bookmark the page from the page menu.
+        waitFor(By.res("pageMenu")).click()
+        waitFor(By.text("Add bookmark")).click()
+
+        // A download lands in Downloads (tab switcher → Library → Downloads),
+        // and the bookmark in Mobile Bookmarks (Library → Bookmarks).
         waitFor(By.text("Download a file"), 30_000).click()
         waitFor(By.res("tabsButton")).click()
+        waitFor(By.res("libraryButton")).click()
         waitFor(By.res("downloadsButton")).click()
         waitFor(By.res("downloadName").text("zen-e2e.bin"), 60_000)
         screenshot("downloads")
         device.pressBack()
-        device.pressBack()
+        waitFor(By.res("bookmarksButton")).click()
+        waitFor(By.text("Mobile Bookmarks")).click()
+        waitFor(By.res("bookmarkTitle").text(title), 30_000)
+        screenshot("bookmarks")
+        // Bookmarks folder, Bookmarks, Library, then the tab switcher.
+        repeat(4) { device.pressBack() }
 
         // Find in page: Gecko counts matches; the page has one "Zen".
         waitFor(By.res("pageMenu")).click()
@@ -123,6 +134,17 @@ class BrowsingTest {
         waitFor(By.res("findStatus").text("1 of 1"), 30_000)
         screenshot("find")
         waitFor(By.res("findDone")).click()
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(By.res("newTabButton")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text Zen")
+        val suggestion = waitFor(By.res("suggestion"), 30_000)
+        screenshot("suggestions")
+        suggestion.click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        Thread.sleep(5_000)
 
         // Somewhere else in the same tab, through its address. The address
         // bar starts with the page's address; clear it first.

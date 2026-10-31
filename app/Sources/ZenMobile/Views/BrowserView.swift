@@ -103,9 +103,11 @@ struct BrowserView: View {
 /// Back, forward, the page's address (tap to go somewhere else in this tab),
 /// reload or stop, and share; with the load's progress along the top.
 struct NavigationBar: View {
+    @Environment(Places.self) var places
     let page: WebPage
     let onAddress: () -> Void
     let onFind: () -> Void
+    @State var isBookmarked = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,6 +168,10 @@ struct NavigationBar: View {
                 .accessibilityLabel(Text("Share"))
                 .accessibilityIdentifier("shareButton")
                 Menu {
+                    Button(isBookmarked ? "Remove bookmark" : "Add bookmark") {
+                        let (url, title) = (page.url, page.title)
+                        Task { isBookmarked = await places.toggleBookmark(url, title: title) }
+                    }
                     Button("Find in page", action: onFind)
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 36, height: 36)
@@ -177,6 +183,7 @@ struct NavigationBar: View {
             .padding(.top, 8)
         }
         .foregroundStyle(Color.primary)
+        .task(id: page.url) { isBookmarked = await places.isBookmarked(page.url) }
     }
 }
 
@@ -402,11 +409,14 @@ struct PromptView: View {
 }
 
 struct AddressBarView: View {
+    @Environment(Places.self) var places
     /// Whether to offer opening the page in a private tab.
     let allowsPrivate: Bool
     let onSubmit: (URL, Bool) -> Void
     @State var text: String
     @State var isPrivate = false
+    /// Pages from history and bookmarks matching the text.
+    @State var suggestions: [Places.Suggestion] = []
 
     init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
         _text = State(initialValue: text)
@@ -438,10 +448,24 @@ struct AddressBarView: View {
                 Toggle("Private tab", isOn: $isPrivate)
                     .accessibilityIdentifier("privateToggle")
             }
+            ForEach(suggestions) { suggestion in
+                Button { onSubmit(suggestion.url, isPrivate) } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(suggestion.title).lineLimit(1)
+                        Text(suggestion.url.absoluteString)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityIdentifier("suggestion")
+            }
             Spacer()
         }
         .padding()
         .presentationDetents([.medium])
+        .task(id: text) { suggestions = await places.suggestions(for: text) }
     }
 
     private func submit() {

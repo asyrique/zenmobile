@@ -36,10 +36,13 @@ import SkipFuse
     @ObservationIgnored private let storeURL: URL?
     /// Where pages' downloads go.
     @ObservationIgnored private let downloads: Downloads?
+    /// History, which pages in normal tabs add to.
+    @ObservationIgnored private let places: Places?
 
-    init(storeURL: URL? = nil, downloads: Downloads? = nil) {
+    init(storeURL: URL? = nil, downloads: Downloads? = nil, places: Places? = nil) {
         self.storeURL = storeURL
         self.downloads = downloads
+        self.places = places
         restore()
     }
 
@@ -72,6 +75,11 @@ import SkipFuse
         page.onChange = { [weak self] in self?.save() }
         // Windows a private page opens are private too.
         page.onOpenWindow = { [weak self] url in self?.open(url, isPrivate: isPrivate) }
+        // Private pages leave no history.
+        if !isPrivate, let places {
+            page.onVisit = { [weak places] url in places?.recordVisit(url, title: nil) }
+            page.onTitle = { [weak places] title, url in places?.recordTitle(title, for: url) }
+        }
         return page
     }
 

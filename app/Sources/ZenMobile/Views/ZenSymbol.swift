@@ -9,6 +9,8 @@ enum ZenSymbol: String {
     case split = "rectangle.split.2x1"
     case spaces = "square.stack.3d.up"
     case privateTab = "eye.slash"
+    case library = "books.vertical"
+    case history = "clock"
 }
 
 struct ZenSymbolImage: View {
@@ -31,7 +33,9 @@ struct ZenSymbolImage: View {
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Computer
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -58,6 +62,8 @@ struct MaterialIconComposer : ContentComposer {
         case "rectangle.split.2x1": icon = Icons.Outlined.VerticalSplit
         case "square.stack.3d.up": icon = Icons.Outlined.Layers
         case "eye.slash": icon = Icons.Outlined.VisibilityOff
+        case "books.vertical": icon = Icons.Outlined.CollectionsBookmark
+        case "clock": icon = Icons.Outlined.History
         default: icon = Icons.Outlined.Warning
         }
         Icon(imageVector: icon, contentDescription: nil, modifier: context.modifier.size(size.dp), tint: LocalContentColor.current)
