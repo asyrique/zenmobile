@@ -41,6 +41,13 @@ real UI.
       button), the Arc-style bottom bar.
 - [x] Each tab keeps its page (WKWebView / GeckoSession) while other tabs are
       shown, and tabs survive a restart.
+- [x] Browser basics: load progress and stop, a padlock for secure pages, share,
+      links that open a new window open as a tab, private tabs (in-memory data,
+      never saved), JavaScript dialogs, site permissions (camera, microphone,
+      location, notifications), file uploads, and downloads (a Downloads list;
+      on iOS also in the Files app). Covered by the end-to-end tests, except
+      permissions, file uploads and share, which need a person at the system
+      UI.
 
 ## M2 — Zen Spaces
 
