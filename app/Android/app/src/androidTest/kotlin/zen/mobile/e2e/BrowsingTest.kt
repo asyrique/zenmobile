@@ -113,6 +113,10 @@ class BrowsingTest {
         // and the bookmark in Mobile Bookmarks (Library → Bookmarks).
         waitFor(By.text("Download a file"), 30_000).click()
         waitFor(By.res("tabsButton")).click()
+        // Let the tab switcher finish sliding up: a navigation tap that lands
+        // mid-animation can leave the pushed screen blank (Skip on Android).
+        device.waitForIdle()
+        Thread.sleep(1_000)
         waitFor(By.res("libraryButton")).click()
         waitFor(By.res("downloadsButton")).click()
         waitFor(By.res("downloadName").text("zen-e2e.bin"), 60_000)
