@@ -464,7 +464,8 @@ struct AddressBarView: View {
             Spacer()
         }
         .padding()
-        .presentationDetents([.medium])
+        // Full height, so suggestions show above the keyboard.
+        .presentationDetents([.large])
         .task(id: text) { suggestions = await places.suggestions(for: text) }
     }
 
