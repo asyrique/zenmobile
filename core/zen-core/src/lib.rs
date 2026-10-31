@@ -12,6 +12,7 @@
 
 pub use fxa_client;
 pub use init_rust_components;
+pub use places;
 pub use rust_log_forwarder;
 pub use tabs;
 pub use viaduct_backend_rust;

@@ -21,7 +21,7 @@ use sync15::client::{
     Sync15StorageClientInit, SyncRequestInfo,
 };
 use sync15::clients_engine::{Command, CommandProcessor, CommandStatus, Settings};
-use sync15::engine::{EngineSyncAssociation, SyncEngine};
+use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync15::{DeviceType, KeyBundle};
 use tabs::{TabsEngine, TabsStore};
 use zen_spaces::ZenSpacesStore;
@@ -98,7 +98,8 @@ impl ZenSyncManager {
         }
     }
 
-    /// Syncs `clients`, `tabs` and `spaces`. Blocking; call it off the main
+    /// Syncs `clients`, `tabs`, `spaces`, and `history` and `bookmarks` once
+    /// Places is registered. Blocking; call it off the main
     /// thread.
     pub fn sync(
         &self,
@@ -156,10 +157,18 @@ impl ZenSyncManager {
 
 impl ZenSyncManager {
     fn engines(&self) -> Vec<Box<dyn SyncEngine>> {
-        vec![
+        let mut engines: Vec<Box<dyn SyncEngine>> = vec![
             Box::new(TabsEngine::new(Arc::clone(&self.tabs))),
             Box::new(self.spaces.sync_engine()),
-        ]
+        ];
+        // History and bookmarks, once the app has opened Places and called
+        // PlacesApi.registerWithSyncManager() (as Firefox's apps do).
+        for id in [SyncEngineId::History, SyncEngineId::Bookmarks] {
+            if let Some(engine) = places::get_registered_sync_engine(&id) {
+                engines.push(engine);
+            }
+        }
+        engines
     }
 
     fn sync_once(
@@ -335,9 +344,28 @@ mod tests {
         );
         assert_eq!(
             processor
-                .apply_incoming_command(Command::Wipe("bookmarks".into()))
+                .apply_incoming_command(Command::Wipe("passwords".into()))
                 .unwrap(),
             CommandStatus::Unsupported
         );
+    }
+
+    #[test]
+    fn places_engines_join_once_registered() {
+        let manager = ZenSyncManager::new(
+            Arc::new(TabsStore::new_with_mem_path("places_engines_join_once_registered")),
+            ZenSpacesStore::new_in_memory(),
+        );
+        let path = std::env::temp_dir().join(format!("zen-places-{}.sqlite", std::process::id()));
+        let api = places::PlacesApi::new(&path).unwrap();
+        api.clone().register_with_sync_manager();
+        let names: Vec<String> = manager
+            .engines()
+            .iter()
+            .map(|e| e.collection_name().to_string())
+            .collect();
+        assert_eq!(names, ["tabs", "spaces", "history", "bookmarks"]);
+        drop(api);
+        let _ = std::fs::remove_file(&path);
     }
 }
