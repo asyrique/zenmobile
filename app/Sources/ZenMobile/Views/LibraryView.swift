@@ -1,17 +1,15 @@
 import SwiftUI
 
-/// Bookmarks, history and downloads.
+/// Bookmarks, history and downloads. Pages open in a new tab, which closes
+/// the tab switcher this is shown from.
 struct LibraryView: View {
-    /// Opens a page from the library in a new tab.
-    let open: (URL) -> Void
-
     var body: some View {
         List {
-            NavigationLink { BookmarksView(guid: Places.Root.all, open: open) } label: {
+            NavigationLink { BookmarksView(guid: Places.Root.all) } label: {
                 Label("Bookmarks", systemImage: "bookmark")
             }
             .accessibilityIdentifier("bookmarksButton")
-            NavigationLink { HistoryView(open: open) } label: {
+            NavigationLink { HistoryView() } label: {
                 HStack {
                     ZenSymbolImage(symbol: .history, size: 20)
                     Text("History")
@@ -31,21 +29,21 @@ struct LibraryView: View {
 /// Firefox's roots (Mobile, Toolbar, Menu, Other), which sync with desktop.
 struct BookmarksView: View {
     @Environment(Places.self) var places
+    @Environment(BrowserModel.self) var browser
     let guid: String
-    let open: (URL) -> Void
     @State var folder: Places.Folder?
 
     var body: some View {
         List {
             if let folder {
                 ForEach(folder.folders) { subfolder in
-                    NavigationLink { BookmarksView(guid: subfolder.guid, open: open) } label: {
+                    NavigationLink { BookmarksView(guid: subfolder.guid) } label: {
                         Label(subfolder.title, systemImage: "list.bullet")
                     }
                 }
                 ForEach(folder.bookmarks) { bookmark in
                     HStack {
-                        Button { open(bookmark.url) } label: {
+                        Button { browser.open(bookmark.url) } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(bookmark.title)
                                     .lineLimit(1)
@@ -85,7 +83,7 @@ struct BookmarksView: View {
 /// Recently visited pages, newest first.
 struct HistoryView: View {
     @Environment(Places.self) var places
-    let open: (URL) -> Void
+    @Environment(BrowserModel.self) var browser
     @State var visits: [Places.Visit] = []
 
     var body: some View {
@@ -94,7 +92,7 @@ struct HistoryView: View {
                 Text("No history yet.").foregroundStyle(.secondary)
             }
             ForEach(visits) { visit in
-                Button { open(visit.url) } label: {
+                Button { browser.open(visit.url) } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(visit.title)
                             .lineLimit(1)

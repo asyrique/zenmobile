@@ -46,12 +46,7 @@ struct TabSwitcherView: View {
                     .accessibilityLabel(Text("Tabs on your desktop"))
                     .accessibilityIdentifier("desktopTabsButton")
                     Spacer()
-                    NavigationLink {
-                        LibraryView { url in
-                            browser.open(url)
-                            dismiss()
-                        }
-                    } label: {
+                    NavigationLink { LibraryView() } label: {
                         ZenSymbolImage(symbol: .library)
                             .frame(width: 48, height: 48)
                             .background(Circle().fill(Color.primary.opacity(0.12)))
@@ -68,6 +63,13 @@ struct TabSwitcherView: View {
                     .accessibilityIdentifier("settingsButton")
                 }
                 .padding(.horizontal, 24)
+            }
+            // A page opened from the library (or desktop tabs) closes the
+            // switcher; closing tabs doesn't.
+            .onChange(of: browser.tabs.count) { before, after in
+                if after > before {
+                    dismiss()
+                }
             }
             .navigationDestination(isPresented: $showDesktopTabs) {
                 DesktopTabsView { url, title in
