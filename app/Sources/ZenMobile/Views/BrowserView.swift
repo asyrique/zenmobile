@@ -426,14 +426,11 @@ struct PromptView: View {
 }
 
 struct AddressBarView: View {
-    @Environment(Places.self) var places
     /// Whether to offer opening the page in a private tab.
     let allowsPrivate: Bool
     let onSubmit: (URL, Bool) -> Void
     @State var text: String
     @State var isPrivate = false
-    /// Pages from history and bookmarks matching the text.
-    @State var suggestions: [Places.Suggestion] = []
 
     init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
         _text = State(initialValue: text)
@@ -465,8 +462,37 @@ struct AddressBarView: View {
                 Toggle("Private tab", isOn: $isPrivate)
                     .accessibilityIdentifier("privateToggle")
             }
+            SuggestionsView(text: text) { url in onSubmit(url, isPrivate) }
+            Spacer()
+        }
+        .padding()
+        // Full height, so suggestions show above the keyboard.
+        .presentationDetents([.large])
+    }
+
+    private func submit() {
+        if let url = BrowserModel.url(forInput: text) {
+            onSubmit(url, isPrivate)
+        }
+    }
+}
+
+/// Pages from history and bookmarks matching the address bar's text.
+///
+/// A view of its own, owning its results: when they arrive, only this list
+/// re-renders. Re-rendering the view that holds the text field while typing
+/// (results land between keystrokes) makes Android's text field drop the
+/// keyboard and the rest of what's typed.
+struct SuggestionsView: View {
+    @Environment(Places.self) var places
+    let text: String
+    let onSelect: (URL) -> Void
+    @State var suggestions: [Places.Suggestion] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(suggestions) { suggestion in
-                Button { onSubmit(suggestion.url, isPrivate) } label: {
+                Button { onSelect(suggestion.url) } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(suggestion.title).lineLimit(1)
                         Text(suggestion.url.absoluteString)
@@ -478,23 +504,12 @@ struct AddressBarView: View {
                 }
                 .accessibilityIdentifier("suggestion")
             }
-            Spacer()
         }
-        .padding()
-        // Full height, so suggestions show above the keyboard.
-        .presentationDetents([.large])
-        // Once typing pauses: updating the list on every keystroke can make
-        // Android's text field lose the keyboard partway through typing.
+        // Once typing pauses, as autocomplete usually does.
         .task(id: text) {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
             suggestions = await places.suggestions(for: text)
-        }
-    }
-
-    private func submit() {
-        if let url = BrowserModel.url(forInput: text) {
-            onSubmit(url, isPrivate)
         }
     }
 }
