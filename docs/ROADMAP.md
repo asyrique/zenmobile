@@ -59,17 +59,23 @@ real UI.
 
 ## M3 — A browser people keep using
 
-- [ ] Tab carousel, tabs grouped by Space.
+- [x] Tab carousel, tabs grouped by Space: a tab opened from a pin belongs to its Space,
+      and tabs opened from it join that Space; Space chips jump between groups.
 - [x] History and bookmarks (application-services `places`), with address bar
       suggestions; history and bookmarks sync with Firefox/Zen desktop when signed in.
       A Library (Bookmarks by folder, History, Downloads).
-- [ ] Send tab both ways and close tabs remotely (FxA device commands, push via APNs/FCM).
+- [x] Send tab both ways and close tabs remotely (FxA device commands). Received tabs
+      arrive on each sync and when the app comes to the foreground.
+- [ ] Instant delivery of sent tabs via push (APNs/FCM through Mozilla's push service).
 - [x] Tracker blocking, on by default: GeckoView's Enhanced Tracking Protection on
       Android; a WKContentRuleList built from EasyPrivacy on iOS.
-- [ ] Ad blocking: uBlock Origin as a built-in extension in GeckoView; a fuller rule
-      list on iOS.
+- [x] Ad blocking, opt-in: uBlock Origin from addons.mozilla.org in GeckoView; EasyList's
+      domain rules as a second WKContentRuleList on iOS.
 - [x] Find in page; download progress.
-- [ ] Logins (application-services `logins`) with platform autofill.
+- [x] Logins (application-services `logins`), synced: saved and filled in the browser
+      (Gecko's login manager on Android, a script on iOS), and Settings → Passwords behind
+      the screen lock. See [ADR 0007](decisions/0007-logins.md).
+- [ ] System AutoFill (iOS credential provider extension, Android AutofillService).
 
 ## M4 — Write-back (risky; needs a test harness first)
 

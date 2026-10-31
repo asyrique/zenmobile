@@ -10,6 +10,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.io.File
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestWatcher
@@ -202,6 +203,45 @@ class BrowsingTest {
         suggestion.click()
         device.wait(Until.gone(By.res("addressField")), 10_000)
         Thread.sleep(5_000)
+
+        // A sign-in offers to save the password (Gecko's login manager finds
+        // the form), and it's listed in Settings → Passwords. Gecko doesn't
+        // fill saved passwords into http pages, so filling isn't checked here.
+        waitFor(By.res("addressPill")).click()
+        waitFor(By.res("addressClear")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text ${url}login.html")
+        waitFor(By.res("addressGo").enabled(true), 10_000).click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        waitFor(By.text("Sign in"), 60_000)
+        Thread.sleep(3_000)
+        val fields = device.wait(Until.findObjects(By.clazz("android.widget.EditText")), 30_000)
+        assertTrue("No sign-in fields", fields != null && fields.size >= 2)
+        fields!![0].click()
+        device.waitForIdle()
+        device.executeShellCommand("input text zen-tester")
+        fields[1].click()
+        device.waitForIdle()
+        device.executeShellCommand("input text hunter2")
+        device.pressEnter()
+        val saveMessage = waitFor(By.res("promptMessage"), 60_000)
+        assertTrue(saveMessage.text.contains("zen-tester"))
+        screenshot("save-password")
+        waitFor(By.res("promptOK")).click()
+        Thread.sleep(3_000)
+        waitFor(By.res("tabsButton")).click()
+        device.waitForIdle()
+        Thread.sleep(1_000)
+        waitFor(By.res("settingsButton")).click()
+        waitFor(By.res("passwordsButton")).click()
+        waitFor(By.res("savedLogin"), 30_000).click()
+        waitFor(By.res("savedUsername").text("zen-tester"), 30_000)
+        waitFor(By.res("showPassword")).click()
+        waitFor(By.res("savedPassword").text("hunter2"), 10_000)
+        screenshot("saved-password")
+        // The saved login, Passwords, Settings, then the tab switcher.
+        repeat(4) { device.pressBack() }
 
         waitFor(By.res("spacesButton")).click()
         waitFor(By.res("spacesEmptyState"))

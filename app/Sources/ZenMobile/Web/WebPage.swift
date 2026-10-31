@@ -6,7 +6,8 @@ import SkipFuse
 import WebKit
 #endif
 
-/// Something a page asks the user: a JavaScript dialog or a permission.
+/// Something a page asks the user: a JavaScript dialog, a permission, a
+/// choice from a list, or whether to save a password.
 struct PagePrompt: Identifiable {
     enum Kind: String {
         /// alert(): a message and OK.
@@ -18,12 +19,18 @@ struct PagePrompt: Identifiable {
         /// A site permission (camera, microphone, location, notifications):
         /// Allow or Block.
         case permission
+        /// Pick one of `options` (a <select>, or which saved login to
+        /// fill); the answer's text is the chosen index.
+        case choice
+        /// Save (or update) the password just submitted: Save or Not now.
+        case saveLogin
     }
 
     let id: Int
     let kind: Kind
     let message: String
     var defaultText = ""
+    var options: [String] = []
 }
 
 /// The find bar's latest result.
@@ -74,6 +81,9 @@ struct FindResult: Equatable {
     /// Where the page's downloads go; nil turns downloads away (the
     /// sign-in page).
     @ObservationIgnored var downloads: Downloads?
+    /// Saved passwords, which the page fills and offers to save to; nil
+    /// leaves logins alone (the sign-in page).
+    @ObservationIgnored var logins: Logins?
     @ObservationIgnored private var promptAnswer: ((Bool, String?) -> Void)?
     @ObservationIgnored private var promptCount = 0
     /// Whether the page has reported a location yet; its first one is a
@@ -222,10 +232,10 @@ struct FindResult: Equatable {
 
     /// Shows a prompt; `answer` gets the user's reply. One at a time: asking
     /// again before the first is answered dismisses the first.
-    fileprivate func ask(_ kind: PagePrompt.Kind, message: String, defaultText: String = "", answer: @escaping (Bool, String?) -> Void) {
+    func ask(_ kind: PagePrompt.Kind, message: String, defaultText: String = "", options: [String] = [], answer: @escaping (Bool, String?) -> Void) {
         answerPrompt(accepted: false)
         promptCount += 1
-        prompt = PagePrompt(id: promptCount, kind: kind, message: message, defaultText: defaultText)
+        prompt = PagePrompt(id: promptCount, kind: kind, message: message, defaultText: defaultText, options: options)
         promptAnswer = answer
     }
 
@@ -250,7 +260,11 @@ struct FindResult: Equatable {
             onSecurityChange: { [weak self] secure in self?.didChange(isSecure: secure) },
             onOpenWindow: { [weak self] url in self?.openWindow(url) },
             onPrompt: { [weak self] id, kind, message, defaultText in
-                self?.ask(PagePrompt.Kind(rawValue: kind) ?? .alert, message: message, defaultText: defaultText ?? "") { [weak self] accepted, text in
+                let promptKind = PagePrompt.Kind(rawValue: kind) ?? .alert
+                // A choice's options come as lines of the default text.
+                let isChoice = promptKind == .choice
+                let options = isChoice ? (defaultText ?? "").components(separatedBy: "\n") : []
+                self?.ask(promptKind, message: message, defaultText: isChoice ? "" : (defaultText ?? ""), options: options) { [weak self] accepted, text in
                     self?.gecko?.answerPrompt(id: id, accepted: accepted, text: text)
                 }
             },
@@ -264,7 +278,8 @@ struct FindResult: Equatable {
                 } else {
                     self?.downloads?.update(name, progress: Double(percent) / 100)
                 }
-            })
+            },
+            usesLogins: logins != nil)
         gecko = tab
         return tab
     }
@@ -297,6 +312,8 @@ struct FindResult: Equatable {
     /// progress.
     private var downloadNames: [ObjectIdentifier: String] = [:]
     private var downloadProgress: [ObjectIdentifier: NSKeyValueObservation] = [:]
+    /// Fills and saves passwords (LoginForms.swift).
+    private var loginForms: LoginForms?
 
     init(page: WebPage) {
         self.page = page
@@ -306,6 +323,9 @@ struct FindResult: Equatable {
         }
         for rules in ContentBlocker.shared.ruleLists {
             configuration.userContentController.add(rules)
+        }
+        if let logins = page.logins {
+            loginForms = LoginForms(page: page, logins: logins, controller: configuration.userContentController)
         }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()

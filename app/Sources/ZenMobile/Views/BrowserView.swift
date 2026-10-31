@@ -447,30 +447,65 @@ struct PromptView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if prompt.kind != .permission {
+            // The page's own dialogs say who's asking.
+            if prompt.kind == .alert || prompt.kind == .confirm || prompt.kind == .text {
                 Text("\(host) says").font(.headline)
             }
-            Text(prompt.message)
-                .accessibilityIdentifier("promptMessage")
+            if !prompt.message.isEmpty {
+                Text(prompt.message)
+                    .accessibilityIdentifier("promptMessage")
+            }
             if prompt.kind == .text {
                 TextField("", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("promptField")
             }
+            if prompt.kind == .choice {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(0..<prompt.options.count, id: \.self) { index in
+                            Button { onAnswer(true, String(index)) } label: {
+                                Text(prompt.options[index])
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 12)
+                            }
+                            .accessibilityIdentifier("promptChoice")
+                        }
+                    }
+                }
+            }
             HStack {
                 Spacer()
                 if prompt.kind != .alert {
-                    Button(prompt.kind == .permission ? "Block" : "Cancel") { onAnswer(false, nil) }
+                    Button(cancelTitle) { onAnswer(false, nil) }
                         .accessibilityIdentifier("promptCancel")
                 }
-                Button(prompt.kind == .permission ? "Allow" : "OK") { onAnswer(true, text) }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("promptOK")
+                if prompt.kind != .choice {
+                    Button(okTitle) { onAnswer(true, text) }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("promptOK")
+                }
             }
             Spacer()
         }
         .padding()
         .presentationDetents([.medium])
+    }
+
+    private var cancelTitle: String {
+        switch prompt.kind {
+        case .permission: return "Block"
+        case .saveLogin: return "Not now"
+        default: return "Cancel"
+        }
+    }
+
+    private var okTitle: String {
+        switch prompt.kind {
+        case .permission: return "Allow"
+        case .saveLogin: return "Save"
+        default: return "OK"
+        }
     }
 }
 

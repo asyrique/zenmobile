@@ -16,4 +16,11 @@ struct AndroidFiles {
         GeckoDownloads.open(ProcessInfo.processInfo.androidContext, path)
     }
 }
+
+/// The clipboard (DeviceAuth.kt).
+struct AndroidClipboard {
+    public static func copy(text: String) {
+        Clipboards.copy(ProcessInfo.processInfo.androidContext, text)
+    }
+}
 #endif

@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import org.mozilla.geckoview.Autocomplete
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate
@@ -21,7 +22,8 @@ import org.mozilla.geckoview.GeckoSession.PromptDelegate
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.PromptResponse
 
 /**
- * A tab's JavaScript dialogs, permission requests and file pickers.
+ * A tab's JavaScript dialogs, <select> menus, saved-password prompts,
+ * permission requests and file pickers.
  *
  * Dialogs and site permissions go to the app's own UI (Swift, through [ask]:
  * id, kind, message, default text) and come back through [answer]. The
@@ -30,6 +32,8 @@ import org.mozilla.geckoview.GeckoSession.PromptDelegate.PromptResponse
  */
 internal class GeckoPrompts(
     private val ask: (Int, String, String, String?) -> Unit,
+    /** Whether to offer saving passwords and filling saved ones. */
+    private val usesLogins: Boolean,
 ) : PromptDelegate, PermissionDelegate {
     class FilePick(val mimeType: String, val multiple: Boolean, val done: (Context, List<Uri>) -> Unit)
     class AndroidPermissions(val permissions: Array<String>, val done: (Boolean) -> Unit)
@@ -68,6 +72,57 @@ internal class GeckoPrompts(
         request("text", prompt.message ?: "", prompt.defaultValue) { accepted, text ->
             if (accepted) prompt.confirm(text ?: "") else prompt.dismiss()
         }
+
+    // <select> menus: one choice from the app's list (multiple-choice lists
+    // keep Gecko's default).
+
+    override fun onChoicePrompt(session: GeckoSession, prompt: PromptDelegate.ChoicePrompt): GeckoResult<PromptResponse>? {
+        if (prompt.type == PromptDelegate.ChoicePrompt.Type.MULTIPLE) return null
+        val choices = mutableListOf<PromptDelegate.ChoicePrompt.Choice>()
+        fun add(items: Array<PromptDelegate.ChoicePrompt.Choice>) {
+            for (choice in items) {
+                val group = choice.items
+                if (group != null) add(group) else if (!choice.separator && !choice.disabled) choices.add(choice)
+            }
+        }
+        add(prompt.choices)
+        if (choices.isEmpty()) return null
+        return request("choice", prompt.title ?: "", choices.joinToString("\n") { it.label }) { accepted, text ->
+            val index = text?.toIntOrNull()
+            if (accepted && index != null && index in choices.indices) prompt.confirm(choices[index]) else prompt.dismiss()
+        }
+    }
+
+    // Saved passwords. Gecko finds the forms, fills a single saved login
+    // itself and asks here to save a new one or pick among several; the
+    // logins come from GeckoLoginStorage.
+
+    override fun onLoginSave(
+        session: GeckoSession,
+        save: PromptDelegate.AutocompleteRequest<Autocomplete.LoginSaveOption>,
+    ): GeckoResult<PromptResponse>? {
+        val option = save.options.firstOrNull()
+        if (!usesLogins || option == null) return null
+        val login = option.value
+        val who = if (login.username.isEmpty()) "" else " for ${login.username}"
+        val verb = if (login.guid == null) "Save" else "Update"
+        return request("saveLogin", "$verb password$who on ${host(login.origin)}?") { accepted, _ ->
+            if (accepted) save.confirm(option) else save.dismiss()
+        }
+    }
+
+    override fun onLoginSelect(
+        session: GeckoSession,
+        select: PromptDelegate.AutocompleteRequest<Autocomplete.LoginSelectOption>,
+    ): GeckoResult<PromptResponse>? {
+        val options = select.options
+        if (!usesLogins || options.isEmpty()) return null
+        val names = options.joinToString("\n") { it.value.username.ifEmpty { "(no username)" } }
+        return request("choice", "Fill a saved password", names) { accepted, text ->
+            val index = text?.toIntOrNull()
+            if (accepted && index != null && index in options.indices) select.confirm(options[index]) else select.dismiss()
+        }
+    }
 
     // File uploads (<input type=file>): the system picker.
 

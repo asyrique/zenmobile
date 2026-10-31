@@ -13,6 +13,8 @@ version = "0.1.0"
 [workspace.dependencies]
 fxa-client = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
 tabs = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
+db-crypto = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
+logins = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
 places = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
 sync15 = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3" }
 sync-guid = { git = "https://github.com/mozilla/application-services", rev = "723ccb82acf461404d8243a3ad231d7c6fa9d2f3", features = ["random"] }

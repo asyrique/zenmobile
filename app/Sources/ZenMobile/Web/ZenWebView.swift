@@ -62,6 +62,16 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 
+/// Connects Gecko's login manager to the app's saved passwords
+/// (GeckoLogins.kt). Public so Kotlin doesn't rename it on the JVM.
+struct GeckoLogins {
+    public static func connect(fetch: @escaping (String) -> String, save: @escaping (String) -> Void, used: @escaping (String) -> Void) {
+        GeckoLoginStorage.fetch = fetch
+        GeckoLoginStorage.save = save
+        GeckoLoginStorage.used = used
+    }
+}
+
 final class ZenGeckoRuntime {
     // SKIP @nobridge
     static var shared: GeckoRuntime? = nil
@@ -76,9 +86,12 @@ final class ZenGeckoRuntime {
                 .antiTracking(trackingProtection)
                 .enhancedTrackingProtectionLevel(etpLevel)
                 .build())
+            // A single saved login fills its form as the page loads.
+            .loginAutofillEnabled(true)
             .build()
         let runtime = GeckoRuntime.create(context.applicationContext, settings)
         shared = runtime
+        GeckoLoginStorage.attach(runtime)
         GeckoAdBlocking.apply(runtime)
         return runtime
     }
@@ -122,7 +135,7 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void, usesLogins: Bool) {
         initialURL = url
         // Private mode keeps the session's cookies, storage and cache in
         // memory, apart from normal tabs.
@@ -132,7 +145,7 @@ final class GeckoTab {
         session.contentDelegate = delegate
         session.historyDelegate = delegate
         session.progressDelegate = delegate
-        prompts = GeckoPrompts(onPrompt)
+        prompts = GeckoPrompts(onPrompt, usesLogins)
         session.promptDelegate = prompts
         session.permissionDelegate = prompts
     }

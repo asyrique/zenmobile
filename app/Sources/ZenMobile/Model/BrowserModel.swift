@@ -42,11 +42,14 @@ import ZenCore
     @ObservationIgnored private let downloads: Downloads?
     /// History, which pages in normal tabs add to.
     @ObservationIgnored private let places: Places?
+    /// Saved passwords, which pages fill and save to.
+    @ObservationIgnored private let logins: Logins?
 
-    init(storeURL: URL? = nil, downloads: Downloads? = nil, places: Places? = nil) {
+    init(storeURL: URL? = nil, downloads: Downloads? = nil, places: Places? = nil, logins: Logins? = nil) {
         self.storeURL = storeURL
         self.downloads = downloads
         self.places = places
+        self.logins = logins
         restore()
     }
 
@@ -142,6 +145,7 @@ import ZenCore
     private func makePage(url: URL, title: String, isPrivate: Bool = false) -> WebPage {
         let page = WebPage(url: url, title: title, isPrivate: isPrivate)
         page.downloads = downloads
+        page.logins = logins
         // Pages change as the user browses; save each change, so a tab
         // reopens where it was even if the app is killed.
         page.onChange = { [weak self] in self?.save() }

@@ -65,7 +65,11 @@ struct AccountView: View {
             } header: {
                 Text("Firefox account")
             } footer: {
-                Text("Optional. Signing in syncs your open tabs and Zen Spaces with Zen desktop; everything else works without it.")
+                Text("Optional. Signing in syncs your open tabs, Zen Spaces, history, bookmarks and passwords with Zen desktop and Firefox; everything else works without it.")
+            }
+            Section {
+                NavigationLink("Passwords") { PasswordsView() }
+                    .accessibilityIdentifier("passwordsButton")
             }
             Section {
                 Toggle("Block trackers", isOn: $blockTrackers)
