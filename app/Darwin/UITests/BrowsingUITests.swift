@@ -124,15 +124,6 @@ final class BrowsingUITests: XCTestCase {
         screenshot("find")
         element("findDone").tap()
 
-        // History suggests the page in a new tab's address bar.
-        waitFor(element("newTabButton")).tap()
-        let suggestField = waitFor(app.textFields["addressField"])
-        suggestField.tap()
-        suggestField.typeText("Zen")
-        let suggestion = waitFor(app.buttons.matching(identifier: "suggestion").firstMatch, timeout: 30)
-        screenshot("suggestions")
-        suggestion.tap()
-        waitFor(app.webViews.staticTexts[heading], timeout: 60)
 
         // Somewhere else in the same tab, through its address, then back.
         // The address bar starts with the page's address; clear it first.
@@ -178,6 +169,16 @@ final class BrowsingUITests: XCTestCase {
         findInTabs("Private")
         screenshot("private-tab")
         app.swipeDown(velocity: .fast)
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(element("newTabButton")).tap()
+        let suggestField = waitFor(app.textFields["addressField"])
+        suggestField.tap()
+        suggestField.typeText("Zen")
+        let suggestion = waitFor(app.buttons.matching(identifier: "suggestion").firstMatch, timeout: 30)
+        screenshot("suggestions")
+        suggestion.tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
 
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))

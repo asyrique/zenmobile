@@ -198,18 +198,22 @@ struct FindResult: Equatable {
         onTitle?(title, url)
     }
 
+    // Engines report these often, mostly unchanged; an @Observable property
+    // notifies on every assignment, so only assign changes (each one
+    // re-renders the navigation bar).
+
     fileprivate func didChange(canGoBack: Bool, canGoForward: Bool) {
-        self.canGoBack = canGoBack
-        self.canGoForward = canGoForward
+        if canGoBack != self.canGoBack { self.canGoBack = canGoBack }
+        if canGoForward != self.canGoForward { self.canGoForward = canGoForward }
     }
 
     fileprivate func didChange(progress: Double, isLoading: Bool) {
-        self.progress = progress
-        self.isLoading = isLoading
+        if progress != self.progress { self.progress = progress }
+        if isLoading != self.isLoading { self.isLoading = isLoading }
     }
 
     fileprivate func didChange(isSecure: Bool) {
-        self.isSecure = isSecure
+        if isSecure != self.isSecure { self.isSecure = isSecure }
     }
 
     fileprivate func openWindow(_ url: URL) {

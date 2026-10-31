@@ -139,16 +139,6 @@ class BrowsingTest {
         screenshot("find")
         waitFor(By.res("findDone")).click()
 
-        // History suggests the page in a new tab's address bar.
-        waitFor(By.res("newTabButton")).click()
-        waitFor(By.res("addressField")).click()
-        device.waitForIdle()
-        device.executeShellCommand("input text Zen")
-        val suggestion = waitFor(By.res("suggestion"), 30_000)
-        screenshot("suggestions")
-        suggestion.click()
-        device.wait(Until.gone(By.res("addressField")), 10_000)
-        Thread.sleep(5_000)
 
         // Somewhere else in the same tab, through its address. The address
         // bar starts with the page's address; clear it first.
@@ -201,6 +191,17 @@ class BrowsingTest {
         findInTabs("Private")
         screenshot("private-tab")
         device.pressBack()
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(By.res("newTabButton")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text Zen")
+        val suggestion = waitFor(By.res("suggestion"), 30_000)
+        screenshot("suggestions")
+        suggestion.click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        Thread.sleep(5_000)
 
         waitFor(By.res("spacesButton")).click()
         waitFor(By.res("spacesEmptyState"))
