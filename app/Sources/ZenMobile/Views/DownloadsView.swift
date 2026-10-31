@@ -8,10 +8,14 @@ struct DownloadsView: View {
         List {
             if !downloads.inProgress.isEmpty {
                 Section("Downloading") {
-                    ForEach(downloads.inProgress, id: \.self) { name in
-                        HStack {
-                            ProgressView()
-                            Text(name).lineLimit(1)
+                    ForEach(downloads.inProgress) { download in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(download.name).lineLimit(1)
+                            if let progress = download.progress {
+                                ProgressView(value: progress)
+                            } else {
+                                ProgressView()
+                            }
                         }
                     }
                 }

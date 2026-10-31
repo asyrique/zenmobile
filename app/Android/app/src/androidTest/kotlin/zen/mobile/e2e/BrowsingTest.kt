@@ -114,6 +114,16 @@ class BrowsingTest {
         device.pressBack()
         device.pressBack()
 
+        // Find in page: Gecko counts matches; the page has one "Zen".
+        waitFor(By.res("pageMenu")).click()
+        waitFor(By.text("Find in page")).click()
+        waitFor(By.res("findField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text Zen")
+        waitFor(By.res("findStatus").text("1 of 1"), 30_000)
+        screenshot("find")
+        waitFor(By.res("findDone")).click()
+
         // Somewhere else in the same tab, through its address. The address
         // bar starts with the page's address; clear it first.
         waitFor(By.res("addressPill")).click()

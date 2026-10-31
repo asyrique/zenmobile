@@ -13,6 +13,7 @@ struct BrowserView: View {
     /// Whether the address bar loads into the current tab (tapped its
     /// address) rather than opening a new one.
     @State var addressBarEditsTab = false
+    @State var findingInPage = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -20,7 +21,14 @@ struct BrowserView: View {
                 .ignoresSafeArea(edges: .top)
             VStack(spacing: 0) {
                 if let tab = browser.selectedTab {
-                    NavigationBar(page: tab.page, onAddress: { openAddressBar(editingTab: true) })
+                    if findingInPage {
+                        FindBar(page: tab.page, onDone: { findingInPage = false })
+                    } else {
+                        NavigationBar(
+                            page: tab.page,
+                            onAddress: { openAddressBar(editingTab: true) },
+                            onFind: { findingInPage = true })
+                    }
                 }
                 BottomBar(
                     tabCount: browser.tabs.count,
@@ -97,6 +105,7 @@ struct BrowserView: View {
 struct NavigationBar: View {
     let page: WebPage
     let onAddress: () -> Void
+    let onFind: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,11 +165,72 @@ struct NavigationBar: View {
                 }
                 .accessibilityLabel(Text("Share"))
                 .accessibilityIdentifier("shareButton")
+                Menu {
+                    Button("Find in page", action: onFind)
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: 36, height: 36)
+                }
+                .accessibilityLabel(Text("More"))
+                .accessibilityIdentifier("pageMenu")
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
         }
         .foregroundStyle(Color.primary)
+    }
+}
+
+/// Find in page: the text to find, where the match is, previous and next.
+struct FindBar: View {
+    let page: WebPage
+    let onDone: () -> Void
+    @State var text = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Find in page", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .onSubmit { page.find(text) }
+                .accessibilityIdentifier("findField")
+            if let status {
+                Text(status)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("findStatus")
+            }
+            Button { page.find(text, backwards: true) } label: {
+                Image(systemName: "chevron.up").frame(width: 36, height: 36)
+            }
+            .disabled(text.isEmpty)
+            .accessibilityLabel(Text("Previous match"))
+            Button { page.find(text) } label: {
+                Image(systemName: "chevron.down").frame(width: 36, height: 36)
+            }
+            .disabled(text.isEmpty)
+            .accessibilityLabel(Text("Next match"))
+            Button("Done") {
+                page.endFind()
+                onDone()
+            }
+            .accessibilityIdentifier("findDone")
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .onChange(of: text) { _, newText in
+            page.find(newText)
+        }
+    }
+
+    /// "2 of 5" where the engine counts matches (Gecko), otherwise whether
+    /// there's one (WebKit).
+    private var status: String? {
+        guard let result = page.findResult else { return nil }
+        if !result.found {
+            return "Not found"
+        }
+        return result.total > 0 ? "\(result.current) of \(result.total)" : "Found"
     }
 }
 

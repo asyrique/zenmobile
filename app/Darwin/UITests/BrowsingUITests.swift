@@ -92,6 +92,16 @@ final class BrowsingUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.swipeDown(velocity: .fast)
 
+        // Find in page (WebKit only says whether there's a match).
+        waitFor(element("pageMenu")).tap()
+        waitFor(app.buttons["Find in page"]).tap()
+        let findField = waitFor(app.textFields["findField"])
+        findField.tap()
+        findField.typeText("Zen")
+        XCTAssertEqual(waitFor(element("findStatus")).label, "Found")
+        screenshot("find")
+        element("findDone").tap()
+
         // Somewhere else in the same tab, through its address, then back.
         // The address bar starts with the page's address; clear it first.
         element("addressPill").tap()

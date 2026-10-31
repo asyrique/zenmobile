@@ -92,7 +92,7 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Bool, Bool) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void) {
         initialURL = url
         // Private mode keeps the session's cookies, storage and cache in
         // memory, apart from normal tabs.
@@ -129,6 +129,16 @@ final class GeckoTab {
 
     public func stop() {
         session.stop()
+    }
+
+    /// Finds `text`, selecting the next match (or the previous); `onResult`
+    /// gets whether it was found and which match of how many.
+    public func find(text: String, backwards: Bool, onResult: @escaping (Bool, Int, Int) -> Void) {
+        GeckoFind.find(session, text, backwards, onResult)
+    }
+
+    public func clearFind() {
+        session.finder.clear()
     }
 
     /// The user's answer to the dialog or permission request `id`.
@@ -179,13 +189,13 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
     let securityChanged: (Bool) -> Void
     let openWindow: (URL) -> Void
     let downloadsDirectory: String
-    let downloadReported: (String, Bool, Bool) -> Void
+    let downloadReported: (String, Int, Int) -> Void
     var canGoBack = false
     var canGoForward = false
     var progress = 0
     var isLoading = false
 
-    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Bool, Bool) -> Void) {
+    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Int, Int) -> Void) {
         self.shouldCancel = shouldCancel
         self.locationChanged = locationChanged
         self.titleChanged = titleChanged

@@ -26,6 +26,15 @@ struct PagePrompt: Identifiable {
     var defaultText = ""
 }
 
+/// The find bar's latest result.
+struct FindResult: Equatable {
+    let found: Bool
+    /// Which match is selected, of how many; 0 when the engine doesn't say
+    /// (WebKit only reports whether there's a match).
+    let current: Int
+    let total: Int
+}
+
 /// One tab's live web content.
 ///
 /// It owns the engine (a WKWebView on iOS, a GeckoSession on Android) for as
@@ -44,6 +53,8 @@ struct PagePrompt: Identifiable {
     private(set) var isSecure = false
     /// What the page is asking the user, if anything.
     private(set) var prompt: PagePrompt?
+    /// The result of the last find in page; nil when not finding.
+    private(set) var findResult: FindResult?
 
     /// A private page keeps nothing (cookies, storage, cache) once closed,
     /// and its tab isn't saved.
@@ -108,6 +119,38 @@ struct PagePrompt: Identifiable {
         gecko?.stop()
         #elseif canImport(UIKit)
         webKit?.webView.stopLoading()
+        #endif
+    }
+
+    /// Finds `text` in the page and selects the next match (or the previous
+    /// one, `backwards`), wrapping around. An empty text clears the find.
+    func find(_ text: String, backwards: Bool = false) {
+        guard !text.isEmpty else {
+            endFind()
+            return
+        }
+        #if os(Android)
+        gecko?.find(text: text, backwards: backwards) { [weak self] found, current, total in
+            self?.findResult = FindResult(found: found, current: current, total: total)
+        }
+        #elseif canImport(UIKit)
+        guard let webView = webKit?.webView else { return }
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.wraps = true
+        Task {
+            let result = await webView.find(text, configuration: configuration)
+            findResult = FindResult(found: result.matchFound, current: 0, total: 0)
+        }
+        #endif
+    }
+
+    func endFind() {
+        findResult = nil
+        #if os(Android)
+        gecko?.clearFind()
+        #elseif canImport(UIKit)
+        webKit?.webView.evaluateJavaScript("window.getSelection().removeAllRanges()")
         #endif
     }
 
@@ -198,11 +241,14 @@ struct PagePrompt: Identifiable {
                 }
             },
             downloadsDirectory: downloads?.directory.path ?? "",
-            onDownload: { [weak self] name, finished, _ in
-                if finished {
+            onDownload: { [weak self] name, percent, state in
+                // state: 0 running, 1 done, 2 failed; percent -1 if unknown.
+                if state != 0 {
                     self?.downloads?.finished(name)
-                } else {
+                } else if percent < 0 {
                     self?.downloads?.started(name)
+                } else {
+                    self?.downloads?.update(name, progress: Double(percent) / 100)
                 }
             })
         gecko = tab
@@ -233,8 +279,10 @@ struct PagePrompt: Identifiable {
     let webView: WKWebView
     private weak var page: WebPage?
     private var observations: [NSKeyValueObservation] = []
-    /// The file each download in progress is going to.
+    /// The file each download in progress is going to, and what watches its
+    /// progress.
     private var downloadNames: [ObjectIdentifier: String] = [:]
+    private var downloadProgress: [ObjectIdentifier: NSKeyValueObservation] = [:]
 
     init(page: WebPage) {
         self.page = page
@@ -318,8 +366,13 @@ struct PagePrompt: Identifiable {
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
         guard let downloads = page?.downloads else { return nil }
         let destination = downloads.destination(for: suggestedFilename)
-        downloadNames[ObjectIdentifier(download)] = destination.lastPathComponent
-        downloads.started(destination.lastPathComponent)
+        let name = destination.lastPathComponent
+        downloadNames[ObjectIdentifier(download)] = name
+        downloads.started(name)
+        downloadProgress[ObjectIdentifier(download)] = download.progress.observe(\.fractionCompleted) { [weak downloads] progress, _ in
+            let fraction = progress.fractionCompleted
+            Task { @MainActor in downloads?.update(name, progress: fraction) }
+        }
         return destination
     }
 
@@ -333,6 +386,7 @@ struct PagePrompt: Identifiable {
     }
 
     private func finish(_ download: WKDownload) {
+        downloadProgress.removeValue(forKey: ObjectIdentifier(download))
         if let name = downloadNames.removeValue(forKey: ObjectIdentifier(download)) {
             page?.downloads?.finished(name)
         }
