@@ -79,25 +79,27 @@ final class ZenGeckoRuntime {
             .build()
         let runtime = GeckoRuntime.create(context.applicationContext, settings)
         shared = runtime
+        GeckoAdBlocking.apply(runtime)
         return runtime
     }
 
-    /// Applies TrackerBlocking's setting to the running runtime.
+    /// Applies the content blocking settings to the running runtime.
     // SKIP @nobridge
-    static func applyTrackingProtection() {
+    static func applyContentBlocking() {
         guard let runtime = shared else { return }
         runtime.settings.contentBlocking.setAntiTracking(trackingProtection)
         runtime.settings.contentBlocking.setEnhancedTrackingProtectionLevel(etpLevel)
+        GeckoAdBlocking.apply(runtime)
     }
 
     // Firefox's standard protection (trackers, social, cryptominers,
     // fingerprinters), or none.
     private static var trackingProtection: Int {
-        GeckoTrackingProtection.enabled ? ContentBlocking.AntiTracking.DEFAULT : ContentBlocking.AntiTracking.NONE
+        GeckoContentBlocking.trackers ? ContentBlocking.AntiTracking.DEFAULT : ContentBlocking.AntiTracking.NONE
     }
 
     private static var etpLevel: Int {
-        GeckoTrackingProtection.enabled ? ContentBlocking.EtpLevel.DEFAULT : ContentBlocking.EtpLevel.NONE
+        GeckoContentBlocking.trackers ? ContentBlocking.EtpLevel.DEFAULT : ContentBlocking.EtpLevel.NONE
     }
 }
 

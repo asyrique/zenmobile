@@ -304,12 +304,12 @@ struct FindResult: Equatable {
         if page.isPrivate {
             configuration.websiteDataStore = Self.privateDataStore
         }
-        if let trackers = ContentBlocker.shared.ruleList {
-            configuration.userContentController.add(trackers)
+        for rules in ContentBlocker.shared.ruleLists {
+            configuration.userContentController.add(rules)
         }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
-        // The tracker list arrives after launch, and the setting can change.
+        // The block lists arrive after launch, and the settings can change.
         NotificationCenter.default.addObserver(self, selector: #selector(trackerRulesChanged), name: ContentBlocker.didChange, object: nil)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -347,8 +347,8 @@ struct FindResult: Equatable {
     @objc private func trackerRulesChanged() {
         let rules = webView.configuration.userContentController
         rules.removeAllContentRuleLists()
-        if let trackers = ContentBlocker.shared.ruleList {
-            rules.add(trackers)
+        for list in ContentBlocker.shared.ruleLists {
+            rules.add(list)
         }
     }
 

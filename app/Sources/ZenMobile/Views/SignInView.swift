@@ -44,7 +44,8 @@ struct SignInWebView: View {
 
 struct AccountView: View {
     @Environment(AppModel.self) var app
-    @AppStorage(TrackerBlocking.settingKey) var blockTrackers = true
+    @AppStorage(ContentBlocking.trackersKey) var blockTrackers = true
+    @AppStorage(ContentBlocking.adsKey) var blockAds = false
 
     var body: some View {
         Form {
@@ -70,12 +71,17 @@ struct AccountView: View {
                 Toggle("Block trackers", isOn: $blockTrackers)
                     .accessibilityIdentifier("blockTrackersToggle")
                     .onChange(of: blockTrackers) { _, _ in
-                        Task { await TrackerBlocking.apply() }
+                        Task { await ContentBlocking.apply() }
+                    }
+                Toggle("Block ads", isOn: $blockAds)
+                    .accessibilityIdentifier("blockAdsToggle")
+                    .onChange(of: blockAds) { _, _ in
+                        Task { await ContentBlocking.apply() }
                     }
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("Stops known trackers from following you across websites. Turn off if a site doesn't work.")
+                Text(Self.privacyFooter)
             }
             if let error = app.lastSyncError {
                 Section("Last sync") {
@@ -84,5 +90,14 @@ struct AccountView: View {
             }
         }
         .navigationTitle("Settings")
+    }
+
+    private static var privacyFooter: String {
+        #if os(Android)
+        let ads = "Ad blocking installs uBlock Origin from addons.mozilla.org."
+        #else
+        let ads = "Ad blocking uses EasyList, updated every few days."
+        #endif
+        return "Stops known trackers from following you across websites. \(ads) Turn either off if a site doesn't work."
     }
 }

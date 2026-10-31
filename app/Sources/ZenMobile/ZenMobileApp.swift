@@ -46,7 +46,7 @@ struct RootContent: View {
         .environment(places)
         .preferredColorScheme(.dark)
         .task {
-            await TrackerBlocking.apply()
+            await ContentBlocking.apply()
             // Tabs other devices send here open in the background.
             app.onTabsReceived = { [browser] tabs in browser.receive(tabs) }
             app.onTabsClosed = { [browser] urls in browser.closeTabs(at: urls) }
