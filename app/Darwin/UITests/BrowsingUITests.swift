@@ -198,18 +198,6 @@ final class BrowsingUITests: XCTestCase {
         screenshot("save-password")
         element("promptOK").tap()
         waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
-        // Loaded afresh (going back could restore the typed values).
-        element("addressPill").tap()
-        waitFor(element("addressClear")).tap()
-        let againField = waitFor(app.textFields["addressField"])
-        againField.tap()
-        againField.typeText(url + "login.html")
-        element("addressGo").tap()
-        let filled = NSPredicate(format: "value == %@", "zen-tester")
-        let refilled = app.webViews.textFields["Username"]
-        expectation(for: filled, evaluatedWith: refilled)
-        waitForExpectations(timeout: 30)
-        screenshot("filled-password")
         element("tabsButton").tap()
         waitFor(element("settingsButton")).tap()
         waitFor(element("passwordsButton")).tap()
@@ -222,6 +210,19 @@ final class BrowsingUITests: XCTestCase {
             app.navigationBars.buttons.element(boundBy: 0).tap()
         }
         waitFor(element("tabsDone")).tap()
+
+        // The form fills when loaded afresh (going back could restore the typed values).
+        element("addressPill").tap()
+        waitFor(element("addressClear")).tap()
+        let againField = waitFor(app.textFields["addressField"])
+        againField.tap()
+        againField.typeText(url + "login.html")
+        element("addressGo").tap()
+        let filled = NSPredicate(format: "value == %@", "zen-tester")
+        let refilled = app.webViews.textFields["Username"]
+        expectation(for: filled, evaluatedWith: refilled)
+        waitForExpectations(timeout: 30)
+        screenshot("filled-password")
 
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))

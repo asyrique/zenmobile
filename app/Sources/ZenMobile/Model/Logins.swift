@@ -16,18 +16,22 @@ import ZenCore
 @MainActor @Observable final class Logins {
     /// Every saved login, for the Passwords screen; loaded by `reload()`.
     private(set) var saved: [Login] = []
+    /// Why saved passwords can't be used, if the store didn't open.
+    let unavailableReason: String?
 
     nonisolated let store: LoginStore?
 
     private static let keyName = "io.github.asyrique.zenmobile.logins.key"
 
     init(path: String) {
-        store = Self.open(path: path)
+        let (store, failure) = Self.open(path: path)
+        self.store = store
+        unavailableReason = failure
         // Kept alive by `self`: sync finds the store through a weak reference.
         store?.registerWithSyncManager()
     }
 
-    private static func open(path: String) -> LoginStore? {
+    private static func open(path: String) -> (LoginStore?, String?) {
         do {
             var isNewKey = false
             let key: String
@@ -48,10 +52,10 @@ import ZenCore
                 // sync brings the logins back.
                 try store.wipeLocal()
             }
-            return store
+            return (store, nil)
         } catch {
             logger.error("Opening saved passwords failed: \(error)")
-            return nil
+            return (nil, "\(error)")
         }
     }
 

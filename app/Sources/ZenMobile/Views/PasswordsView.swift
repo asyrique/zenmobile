@@ -77,7 +77,18 @@ struct SavedLoginsList: View {
         let shown = logins.saved.filter { login in
             query.isEmpty || login.origin.localizedCaseInsensitiveContains(query) || login.username.localizedCaseInsensitiveContains(query)
         }
-        if logins.saved.isEmpty {
+        if let reason = logins.unavailableReason {
+            VStack(spacing: 8) {
+                Spacer()
+                Text("Saved passwords are unavailable")
+                Text(reason)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("passwordsUnavailable")
+                Spacer()
+            }
+            .padding()
+        } else if logins.saved.isEmpty {
             VStack {
                 Spacer()
                 Text("No saved passwords").foregroundStyle(.secondary)
