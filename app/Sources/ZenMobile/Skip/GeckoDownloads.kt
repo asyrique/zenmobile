@@ -9,6 +9,8 @@ import android.webkit.MimeTypeMap
 import android.webkit.URLUtil
 import androidx.core.content.FileProvider
 import java.io.File
+import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.WebRequest
 import org.mozilla.geckoview.WebResponse
 
 /** Downloads on Android: saving what Gecko can't show, and opening it. */
@@ -63,6 +65,15 @@ internal object GeckoDownloads {
             }
             main.post { report(file.name, 100, if (succeeded) 1 else 2) }
         }.start()
+    }
+
+    /** Fetches [uri] (an image from a page's menu) and saves it like a download. */
+    fun fetch(runtime: GeckoRuntime, uri: String, directory: File, report: (String, Int, Int) -> Unit) {
+        runtime.webExecutor.fetch(WebRequest(uri)).accept({ response ->
+            if (response != null) save(response, directory, report)
+        }, { error ->
+            android.util.Log.e("ZenDownloads", "Fetching $uri failed", error)
+        })
     }
 
     private fun header(response: WebResponse, name: String): String? =

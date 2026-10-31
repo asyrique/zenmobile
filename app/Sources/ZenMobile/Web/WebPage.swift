@@ -5,6 +5,9 @@ import SkipFuse
 #if canImport(WebKit)
 import WebKit
 #endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Something a page asks the user: a JavaScript dialog, a permission, a
 /// choice from a list, or whether to save a password.
@@ -65,6 +68,12 @@ struct FindResult: Equatable {
     private(set) var prompt: PagePrompt?
     /// The result of the last find in page; nil when not finding.
     private(set) var findResult: FindResult?
+    /// Whether the page (a video, usually) fills the screen; the browser
+    /// hides its bars meanwhile. Android only: WebKit plays full-screen
+    /// video in the system player.
+    private(set) var isFullScreen = false
+    /// Whether the page asks sites for their desktop layout.
+    private(set) var isDesktopSite = false
 
     /// A private page keeps nothing (cookies, storage, cache) once closed,
     /// and its tab isn't saved.
@@ -183,6 +192,18 @@ struct FindResult: Equatable {
         answer?(accepted, text)
     }
 
+    /// Asks sites for their desktop layout, or back to mobile, and reloads.
+    func setDesktopSite(_ desktop: Bool) {
+        guard desktop != isDesktopSite else { return }
+        isDesktopSite = desktop
+        #if os(Android)
+        gecko?.setDesktopMode(desktop: desktop)
+        #elseif canImport(UIKit)
+        // The content mode applies per navigation (decidePolicyFor below).
+        webKit?.webView.reload()
+        #endif
+    }
+
     /// Ends the page for good when its tab closes.
     func close() {
         answerPrompt(accepted: false)
@@ -231,6 +252,43 @@ struct FindResult: Equatable {
 
     fileprivate func openWindow(_ url: URL) {
         onOpenWindow?(url)
+    }
+
+    fileprivate func didChange(isFullScreen: Bool) {
+        if isFullScreen != self.isFullScreen { self.isFullScreen = isFullScreen }
+    }
+
+    /// A long press on a link or image (Android; WebKit has its own menu).
+    fileprivate func showContextMenu(link: String?, source: String?, isImage: Bool) {
+        var labels: [String] = []
+        var actions: [() -> Void] = []
+        func add(_ label: String, _ action: @escaping () -> Void) {
+            labels.append(label)
+            actions.append(action)
+        }
+        if let link, let url = URL(string: link) {
+            add(isPrivate ? "Open in new private tab" : "Open in new tab") { [weak self] in self?.openWindow(url) }
+            add("Copy link") { Clipboard.copy(link) }
+            add("Share link") { Share.text(link) }
+        }
+        if isImage, let source, let url = URL(string: source) {
+            add("Open image in new tab") { [weak self] in self?.openWindow(url) }
+            if downloads != nil {
+                add("Save image") { [weak self] in self?.download(url) }
+            }
+            add("Copy image link") { Clipboard.copy(source) }
+        }
+        guard !labels.isEmpty else { return }
+        ask(.choice, message: link ?? source ?? "", options: labels) { accepted, text in
+            guard accepted, let index = text.flatMap({ Int($0) }), actions.indices.contains(index) else { return }
+            actions[index]()
+        }
+    }
+
+    private func download(_ url: URL) {
+        #if os(Android)
+        gecko?.download(url: url)
+        #endif
     }
 
     /// Shows a prompt; `answer` gets the user's reply. One at a time: asking
@@ -282,7 +340,12 @@ struct FindResult: Equatable {
                     self?.downloads?.update(name, progress: Double(percent) / 100)
                 }
             },
-            usesLogins: logins != nil)
+            usesLogins: logins != nil,
+            onFullScreen: { [weak self] fullScreen in self?.didChange(isFullScreen: fullScreen) },
+            onContextMenu: { [weak self] link, source, type in
+                // ContextElement.TYPE_IMAGE
+                self?.showContextMenu(link: link, source: source, isImage: type == 1)
+            })
         gecko = tab
         return tab
     }
@@ -383,15 +446,30 @@ struct FindResult: Equatable {
         page?.didChange(progress: webView.estimatedProgress, isLoading: webView.isLoading)
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
-        if action.targetFrame?.isMainFrame != false, let url = action.request.url, page?.shouldCancel(url) == true {
-            return .cancel
+    /// What WebKit shows itself; any other scheme belongs to another app.
+    private static let webSchemes: Set<String> = ["http", "https", "about", "data", "blob", "file", "javascript"]
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
+        preferences.preferredContentMode = page?.isDesktopSite == true ? .desktop : .mobile
+        guard let url = action.request.url else {
+            return (.allow, preferences)
+        }
+        // Links for other apps (tel:, mailto:, maps, App Store, ...) open
+        // them when tapped; pages don't get to launch apps by themselves.
+        if let scheme = url.scheme?.lowercased(), !Self.webSchemes.contains(scheme) {
+            if action.navigationType == .linkActivated {
+                _ = await UIApplication.shared.open(url)
+            }
+            return (.cancel, preferences)
+        }
+        if action.targetFrame?.isMainFrame != false, page?.shouldCancel(url) == true {
+            return (.cancel, preferences)
         }
         // A link with the download attribute.
         if action.shouldPerformDownload {
-            return page?.downloads == nil ? .cancel : .download
+            return (page?.downloads == nil ? .cancel : .download, preferences)
         }
-        return .allow
+        return (.allow, preferences)
     }
 
     // What WebKit can't show, or a server says is an attachment, downloads.

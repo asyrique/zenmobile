@@ -17,10 +17,17 @@ struct AndroidFiles {
     }
 }
 
-/// The clipboard (DeviceAuth.kt).
+/// The clipboard (AndroidSystem.kt).
 struct AndroidClipboard {
     public static func copy(text: String) {
         Clipboards.copy(ProcessInfo.processInfo.androidContext, text)
+    }
+}
+
+/// The share sheet (AndroidSystem.kt).
+struct AndroidSharing {
+    public static func share(text: String) {
+        Sharing.share(ProcessInfo.processInfo.androidContext, text)
     }
 }
 #endif

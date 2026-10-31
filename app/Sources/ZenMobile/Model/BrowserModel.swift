@@ -210,8 +210,6 @@ import ZenCore
         if !text.contains(" "), text.contains("."), let url = URL(string: "https://\(text)") {
             return url
         }
-        var components = URLComponents(string: "https://duckduckgo.com/")!
-        components.queryItems = [URLQueryItem(name: "q", value: text)]
-        return components.url
+        return SearchEngine.current.url(searching: text)
     }
 }

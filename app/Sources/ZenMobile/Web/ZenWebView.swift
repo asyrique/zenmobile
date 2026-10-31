@@ -21,7 +21,7 @@ struct ZenWebView: View {
         ComposeView {
             // Reading canGoBack here recomposes when it changes, which keeps
             // the system back button in step with the page's history.
-            GeckoContentComposer(tab: page.geckoTab, canGoBack: page.canGoBack)
+            GeckoContentComposer(tab: page.geckoTab, canGoBack: page.canGoBack, isFullScreen: page.isFullScreen)
         }
         #elseif canImport(UIKit)
         WebKitView(webView: page.webView)
@@ -135,12 +135,12 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void, usesLogins: Bool) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void, usesLogins: Bool, onFullScreen: @escaping (Bool) -> Void, onContextMenu: @escaping (String?, String?, Int) -> Void) {
         initialURL = url
         // Private mode keeps the session's cookies, storage and cache in
         // memory, apart from normal tabs.
         session = GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(isPrivate).build())
-        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow, downloadsDirectory: downloadsDirectory, downloadReported: onDownload)
+        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow, downloadsDirectory: downloadsDirectory, downloadReported: onDownload, fullScreenChanged: onFullScreen, contextMenu: onContextMenu)
         session.navigationDelegate = delegate
         session.contentDelegate = delegate
         session.historyDelegate = delegate
@@ -193,6 +193,26 @@ final class GeckoTab {
         session.close()
     }
 
+    public func exitFullScreen() {
+        session.exitFullScreen()
+    }
+
+    /// Asks sites for their desktop layout (a desktop user agent and
+    /// viewport), or the mobile one, and reloads.
+    public func setDesktopMode(desktop: Bool) {
+        session.settings.userAgentMode = desktop ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP : GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+        session.settings.viewportMode = desktop ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP : GeckoSessionSettings.VIEWPORT_MODE_MOBILE
+        if session.isOpen {
+            session.reload()
+        }
+    }
+
+    /// Saves `url` (an image) to Downloads.
+    public func download(url: URL) {
+        guard let runtime = ZenGeckoRuntime.shared, !delegate.downloadsDirectory.isEmpty else { return }
+        GeckoDownloads.fetch(runtime, url.absoluteString, java.io.File(delegate.downloadsDirectory), delegate.downloadReported)
+    }
+
     /// Shows the session in `view`, opening it (and loading the first page)
     /// the first time.
     // SKIP @nobridge
@@ -233,12 +253,14 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
     let openWindow: (URL) -> Void
     let downloadsDirectory: String
     let downloadReported: (String, Int, Int) -> Void
+    let fullScreenChanged: (Bool) -> Void
+    let contextMenu: (String?, String?, Int) -> Void
     var canGoBack = false
     var canGoForward = false
     var progress = 0
     var isLoading = false
 
-    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Int, Int) -> Void) {
+    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Int, Int) -> Void, fullScreenChanged: @escaping (Bool) -> Void, contextMenu: @escaping (String?, String?, Int) -> Void) {
         self.shouldCancel = shouldCancel
         self.locationChanged = locationChanged
         self.titleChanged = titleChanged
@@ -248,6 +270,20 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
         self.openWindow = openWindow
         self.downloadsDirectory = downloadsDirectory
         self.downloadReported = downloadReported
+        self.fullScreenChanged = fullScreenChanged
+        self.contextMenu = contextMenu
+    }
+
+    override func onFullScreen(session: GeckoSession, fullScreen: Bool) {
+        fullScreenChanged(fullScreen)
+    }
+
+    // A long press: the link and/or media under the finger, and the media's
+    // type (ContextElement.TYPE_IMAGE is 1).
+    override func onContextMenu(session: GeckoSession, screenX: Int, screenY: Int, element: GeckoSession.ContentDelegate.ContextElement) {
+        if element.linkUri != nil || element.srcUri != nil {
+            contextMenu(element.linkUri, element.srcUri, element.type)
+        }
     }
 
     // What Gecko can't show (a file to download, a link with download):
@@ -260,7 +296,19 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
         GeckoDownloads.save(response, java.io.File(downloadsDirectory), downloadReported)
     }
 
+    /// What Gecko shows itself; any other scheme belongs to another app.
+    private static let webSchemes: Set<String> = ["http", "https", "about", "data", "blob", "file", "javascript", "view-source", "moz-extension", "resource"]
+
     override func onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest) -> GeckoResult<AllowOrDeny>? {
+        // Links for other apps (tel:, mailto:, intent:, ...) open them, when
+        // the user tapped one: pages don't get to launch apps by themselves.
+        let scheme = (request.uri.components(separatedBy: ":").first ?? "").lowercased()
+        if !Self.webSchemes.contains(scheme) {
+            if request.hasUserGesture, let fallback = ExternalApps.open(ProcessInfo.processInfo.androidContext, request.uri) {
+                session.loadUri(fallback)
+            }
+            return GeckoResult.fromValue(AllowOrDeny.DENY)
+        }
         guard let url = URL(string: request.uri) else {
             return GeckoResult.fromValue(AllowOrDeny.ALLOW)
         }
@@ -328,18 +376,25 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
 struct GeckoContentComposer : ContentComposer {
     let tab: GeckoTab
     let canGoBack: Bool
+    let isFullScreen: Bool
 
-    init(tab: GeckoTab, canGoBack: Bool) {
+    init(tab: GeckoTab, canGoBack: Bool, isFullScreen: Bool) {
         self.tab = tab
         self.canGoBack = canGoBack
+        self.isFullScreen = isFullScreen
     }
 
     @Composable func Compose(context: ComposeContext) {
         // The system back button goes back in the page while it can, and
-        // otherwise does what it normally does.
-        BackHandler(enabled: canGoBack) {
+        // otherwise does what it normally does; in full screen it leaves
+        // full screen first.
+        BackHandler(enabled: canGoBack && !isFullScreen) {
             tab.goBack()
         }
+        BackHandler(enabled: isFullScreen) {
+            tab.exitFullScreen()
+        }
+        FullScreenEffect(isFullScreen)
         GeckoPromptEffects(tab.prompts)
         AndroidView(factory: { ctx in
             let view = GeckoView(ctx)

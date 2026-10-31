@@ -3,9 +3,6 @@ import ZenCore
 #if canImport(LocalAuthentication)
 import LocalAuthentication
 #endif
-#if canImport(UIKit)
-import UIKit
-#endif
 
 /// Settings → Passwords: the saved logins, behind the device's passcode (or
 /// biometrics) as Firefox keeps them, when the device has one.
@@ -163,20 +160,10 @@ struct SavedLoginView: View {
     }
 }
 
-enum Clipboard {
-    static func copy(_ text: String) {
-        #if os(Android)
-        AndroidClipboard.copy(text: text)
-        #elseif canImport(UIKit)
-        UIPasteboard.general.string = text
-        #endif
-    }
-}
-
 #if SKIP
 import androidx.compose.runtime.Composable
 
-/// Asks for the device's screen lock (DeviceAuth.kt) each time `attempt`
+/// Asks for the device's screen lock (AndroidSystem.kt) each time `attempt`
 /// changes, including when first shown.
 struct DeviceAuthComposer : ContentComposer {
     let attempt: Int

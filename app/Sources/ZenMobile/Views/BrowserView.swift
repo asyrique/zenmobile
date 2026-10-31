@@ -21,34 +21,38 @@ struct BrowserView: View {
     @State var sendingTab = false
 
     var body: some View {
+        let fullScreen = browser.selectedTab?.page.isFullScreen == true
         ZStack(alignment: .bottom) {
             content
-                .ignoresSafeArea(edges: .top)
-            VStack(spacing: 0) {
-                if let notice = browser.receivedNotice {
-                    ReceivedTabsBanner(
-                        message: notice,
-                        onShow: { browser.showReceived() },
-                        onDismiss: { browser.dismissReceivedNotice() })
-                }
-                if let tab = browser.selectedTab {
-                    if findingInPage {
-                        FindBar(page: tab.page, onDone: { findingInPage = false })
-                    } else {
-                        NavigationBar(
-                            page: tab.page,
-                            onAddress: { openAddressBar(editingTab: true) },
-                            onFind: { findingInPage = true },
-                            onSend: { sendingTab = true })
+                .ignoresSafeArea(edges: fullScreen ? .all : .top)
+            // A full-screen page (a video) gets the whole screen.
+            if !fullScreen {
+                VStack(spacing: 0) {
+                    if let notice = browser.receivedNotice {
+                        ReceivedTabsBanner(
+                            message: notice,
+                            onShow: { browser.showReceived() },
+                            onDismiss: { browser.dismissReceivedNotice() })
                     }
+                    if let tab = browser.selectedTab {
+                        if findingInPage {
+                            FindBar(page: tab.page, onDone: { findingInPage = false })
+                        } else {
+                            NavigationBar(
+                                page: tab.page,
+                                onAddress: { openAddressBar(editingTab: true) },
+                                onFind: { findingInPage = true },
+                                onSend: { sendingTab = true })
+                        }
+                    }
+                    BottomBar(
+                        tabCount: browser.tabs.count,
+                        onTabs: { showTabs = true },
+                        onNewTab: { openAddressBar(editingTab: false) },
+                        onSpaces: { showSpaces = true })
                 }
-                BottomBar(
-                    tabCount: browser.tabs.count,
-                    onTabs: { showTabs = true },
-                    onNewTab: { openAddressBar(editingTab: false) },
-                    onSpaces: { showSpaces = true })
+                .background(.ultraThinMaterial)
             }
-            .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showSpaces) {
             SpaceSheet { url, title, zenTabId, spaceId in
@@ -199,6 +203,9 @@ struct NavigationBar: View {
                         Task { isBookmarked = await places.toggleBookmark(url, title: title) }
                     }
                     Button("Find in page", action: onFind)
+                    Button(page.isDesktopSite ? "Mobile site" : "Desktop site") {
+                        page.setDesktopSite(!page.isDesktopSite)
+                    }
                     // Needs the account; private pages stay on this device.
                     if case .signedIn = app.account, !page.isPrivate {
                         Button("Send to device", action: onSend)

@@ -46,6 +46,7 @@ struct AccountView: View {
     @Environment(AppModel.self) var app
     @AppStorage(ContentBlocking.trackersKey) var blockTrackers = true
     @AppStorage(ContentBlocking.adsKey) var blockAds = false
+    @AppStorage(SearchEngine.settingKey) var searchEngine = SearchEngine.duckDuckGo.rawValue
 
     var body: some View {
         Form {
@@ -70,6 +71,12 @@ struct AccountView: View {
             Section {
                 NavigationLink("Passwords") { PasswordsView() }
                     .accessibilityIdentifier("passwordsButton")
+                Picker("Search engine", selection: $searchEngine) {
+                    ForEach(SearchEngine.allCases) { engine in
+                        Text(engine.name).tag(engine.rawValue)
+                    }
+                }
+                .accessibilityIdentifier("searchEnginePicker")
             }
             Section {
                 Toggle("Block trackers", isOn: $blockTrackers)
