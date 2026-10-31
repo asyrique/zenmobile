@@ -3,6 +3,7 @@ import Observation
 // Skip Fuse bridges @Observable to Compose only in files that import it;
 // without this the Android UI never sees tabs open.
 import SkipFuse
+import ZenCore
 
 /// The phone's own tabs, saved so they survive a restart.
 @MainActor @Observable final class BrowserModel {
@@ -13,6 +14,9 @@ import SkipFuse
         /// Set when the tab was opened from a desktop pin or Essential, so
         /// tapping the same pin again returns here instead of opening a new tab.
         var zenTabId: String?
+        /// The Zen Space the tab belongs to: the one its pin was opened from,
+        /// or, for a tab opened from a page or the address bar, its opener's.
+        var spaceId: String?
 
         @MainActor var url: URL { page.url }
 
@@ -46,14 +50,46 @@ import SkipFuse
         restore()
     }
 
-    func open(_ url: URL, title: String = "", zenTabId: String? = nil, isPrivate: Bool = false) {
+    /// Opens a tab and shows it. A tab for a pin that's already open shows
+    /// that one instead. Without `spaceId`, a normal tab joins the Space of
+    /// the tab showing now, as a new tab does on desktop.
+    func open(_ url: URL, title: String = "", zenTabId: String? = nil, spaceId: String? = nil, isPrivate: Bool = false) {
         if let zenTabId, let existing = tabs.first(where: { $0.zenTabId == zenTabId }) {
             selectedTabId = existing.id
             return
         }
-        let tab = Tab(page: makePage(url: url, title: title, isPrivate: isPrivate), zenTabId: zenTabId)
+        let space = isPrivate ? nil : (spaceId ?? selectedTab?.spaceId)
+        let tab = Tab(page: makePage(url: url, title: title, isPrivate: isPrivate), zenTabId: zenTabId, spaceId: space)
         tabs.append(tab)
         selectedTabId = tab.id
+    }
+
+    /// Tabs in a Space, or outside any (`spaceId` nil).
+    struct TabGroup: Identifiable {
+        let spaceId: String?
+        let name: String
+        let emoji: String?
+        let tabs: [Tab]
+
+        var id: String { spaceId ?? "" }
+    }
+
+    /// The tabs grouped by Space, in the Spaces' order, then the tabs in none
+    /// (or in a Space desktop no longer has).
+    func tabGroups(spaces: [ZenSpace]) -> [TabGroup] {
+        var groups: [TabGroup] = []
+        var grouped = Set<UUID>()
+        for space in spaces {
+            let members = tabs.filter { $0.spaceId == space.uuid }
+            guard !members.isEmpty else { continue }
+            groups.append(TabGroup(spaceId: space.uuid, name: space.name, emoji: space.emoji, tabs: members))
+            grouped.formUnion(members.map(\.id))
+        }
+        let rest = tabs.filter { !grouped.contains($0.id) }
+        if !rest.isEmpty {
+            groups.append(TabGroup(spaceId: nil, name: groups.isEmpty ? "Tabs" : "Other tabs", emoji: nil, tabs: rest))
+        }
+        return groups
     }
 
     // MARK: Tabs from other devices
@@ -65,7 +101,7 @@ import SkipFuse
     /// Adds tabs another device sent, in the background, with a notice.
     func receive(_ received: [AppModel.ReceivedTab]) {
         for item in received {
-            let tab = Tab(page: makePage(url: item.url, title: item.title), zenTabId: nil)
+            let tab = Tab(page: makePage(url: item.url, title: item.title), zenTabId: nil, spaceId: nil)
             tabs.append(tab)
             lastReceivedTabId = tab.id
         }
@@ -125,6 +161,7 @@ import SkipFuse
         var url: URL
         var title: String
         var zenTabId: String?
+        var spaceId: String?
     }
 
     private struct SavedTabs: Codable {
@@ -136,7 +173,7 @@ import SkipFuse
         guard let storeURL else { return }
         let kept = tabs.filter { !$0.isPrivate }
         let saved = SavedTabs(
-            tabs: kept.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId) },
+            tabs: kept.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId, spaceId: $0.spaceId) },
             selected: kept.firstIndex { $0.id == selectedTabId })
         do {
             try JSONEncoder().encode(saved).write(to: storeURL, options: .atomic)
@@ -152,7 +189,7 @@ import SkipFuse
             return
         }
         // Restored pages load when first shown.
-        tabs = saved.tabs.map { Tab(page: makePage(url: $0.url, title: $0.title), zenTabId: $0.zenTabId) }
+        tabs = saved.tabs.map { Tab(page: makePage(url: $0.url, title: $0.title), zenTabId: $0.zenTabId, spaceId: $0.spaceId) }
         selectedTabId = saved.selected.flatMap { tabs.indices.contains($0) ? tabs[$0].id : nil }
     }
 

@@ -51,8 +51,8 @@ struct BrowserView: View {
             .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showSpaces) {
-            SpaceSheet { url, title, zenTabId in
-                browser.open(url, title: title, zenTabId: zenTabId)
+            SpaceSheet { url, title, zenTabId, spaceId in
+                browser.open(url, title: title, zenTabId: zenTabId, spaceId: spaceId)
                 showSpaces = false
             }
         }
