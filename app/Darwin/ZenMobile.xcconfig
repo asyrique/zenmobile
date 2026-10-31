@@ -19,6 +19,9 @@ GENERATE_INFOPLIST_FILE = YES
 //INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.utilities
 
 // iOS-specific Info.plist property keys
+// Downloads go to Documents/Downloads; these show it in the Files app.
+INFOPLIST_KEY_UIFileSharingEnabled[sdk=iphone*] = YES
+INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace[sdk=iphone*] = YES
 // Web pages can ask for the camera, microphone (getUserMedia) and location;
 // WebKit then shows its prompt, which needs these.
 INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphone*] = Websites you allow can use the camera, for example for video calls.

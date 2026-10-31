@@ -56,6 +56,9 @@ struct PagePrompt: Identifiable {
     /// Called when the page opens a new window (a target=_blank link,
     /// window.open); the browser opens it as a new tab.
     @ObservationIgnored var onOpenWindow: ((URL) -> Void)?
+    /// Where the page's downloads go; nil turns downloads away (the
+    /// sign-in page).
+    @ObservationIgnored var downloads: Downloads?
     @ObservationIgnored private var promptAnswer: ((Bool, String?) -> Void)?
     @ObservationIgnored private var promptCount = 0
 
@@ -193,6 +196,14 @@ struct PagePrompt: Identifiable {
                 self?.ask(PagePrompt.Kind(rawValue: kind) ?? .alert, message: message, defaultText: defaultText ?? "") { [weak self] accepted, text in
                     self?.gecko?.answerPrompt(id: id, accepted: accepted, text: text)
                 }
+            },
+            downloadsDirectory: downloads?.directory.path ?? "",
+            onDownload: { [weak self] name, finished, _ in
+                if finished {
+                    self?.downloads?.finished(name)
+                } else {
+                    self?.downloads?.started(name)
+                }
             })
         gecko = tab
         return tab
@@ -215,13 +226,15 @@ struct PagePrompt: Identifiable {
 #if !os(Android) && canImport(UIKit)
 
 /// A page's WKWebView and its delegates.
-@MainActor private final class WebKitEngine: NSObject, WKNavigationDelegate, WKUIDelegate {
+@MainActor private final class WebKitEngine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
     /// Private pages share one in-memory store, gone when the app quits.
     private static let privateDataStore = WKWebsiteDataStore.nonPersistent()
 
     let webView: WKWebView
     private weak var page: WebPage?
     private var observations: [NSKeyValueObservation] = []
+    /// The file each download in progress is going to.
+    private var downloadNames: [ObjectIdentifier: String] = [:]
 
     init(page: WebPage) {
         self.page = page
@@ -276,7 +289,53 @@ struct PagePrompt: Identifiable {
         if action.targetFrame?.isMainFrame != false, let url = action.request.url, page?.shouldCancel(url) == true {
             return .cancel
         }
+        // A link with the download attribute.
+        if action.shouldPerformDownload {
+            return page?.downloads == nil ? .cancel : .download
+        }
         return .allow
+    }
+
+    // What WebKit can't show, or a server says is an attachment, downloads.
+    func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+        let disposition = (response.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+        guard !response.canShowMIMEType || disposition.lowercased().hasPrefix("attachment") else {
+            return .allow
+        }
+        return page?.downloads == nil ? .cancel : .download
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    // MARK: Downloads (to the Downloads folder in Documents)
+
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
+        guard let downloads = page?.downloads else { return nil }
+        let destination = downloads.destination(for: suggestedFilename)
+        downloadNames[ObjectIdentifier(download)] = destination.lastPathComponent
+        downloads.started(destination.lastPathComponent)
+        return destination
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        finish(download)
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        logger.error("Download failed: \(error)")
+        finish(download)
+    }
+
+    private func finish(_ download: WKDownload) {
+        if let name = downloadNames.removeValue(forKey: ObjectIdentifier(download)) {
+            page?.downloads?.finished(name)
+        }
     }
 
     // JavaScript dialogs. Camera, microphone and location requests use

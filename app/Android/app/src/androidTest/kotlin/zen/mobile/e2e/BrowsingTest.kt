@@ -95,6 +95,15 @@ class BrowsingTest {
         waitFor(By.res("promptOK")).click()
         waitFor(By.text("Confirmed"), 30_000)
 
+        // A download lands in Downloads (tab switcher → Downloads).
+        waitFor(By.text("Download a file"), 30_000).click()
+        waitFor(By.res("tabsButton")).click()
+        waitFor(By.res("downloadsButton")).click()
+        waitFor(By.res("downloadName").text("zen-e2e.bin"), 60_000)
+        screenshot("downloads")
+        device.pressBack()
+        device.pressBack()
+
         // Somewhere else in the same tab, through its address. The address
         // bar starts with the page's address; clear it first.
         waitFor(By.res("addressPill")).click()

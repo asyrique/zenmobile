@@ -34,6 +34,14 @@ struct TabSwitcherView: View {
                     .accessibilityLabel(Text("Tabs on your desktop"))
                     .accessibilityIdentifier("desktopTabsButton")
                     Spacer()
+                    NavigationLink { DownloadsView() } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .frame(width: 48, height: 48)
+                            .background(Circle().fill(Color.primary.opacity(0.12)))
+                    }
+                    .accessibilityLabel(Text("Downloads"))
+                    .accessibilityIdentifier("downloadsButton")
+                    Spacer()
                     NavigationLink { AccountView() } label: {
                         Image(systemName: "gearshape")
                             .frame(width: 48, height: 48)

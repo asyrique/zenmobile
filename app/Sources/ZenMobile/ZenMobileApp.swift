@@ -20,7 +20,16 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Kotlin side never sees them.
 struct RootContent: View {
     @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
-    @State var browser = BrowserModel(storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"))
+    @State var downloads: Downloads
+    @State var browser: BrowserModel
+
+    @MainActor init() {
+        let downloads = Downloads(directory: Downloads.defaultDirectory())
+        _downloads = State(initialValue: downloads)
+        _browser = State(initialValue: BrowserModel(
+            storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"),
+            downloads: downloads))
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,6 +37,7 @@ struct RootContent: View {
         }
         .environment(app)
         .environment(browser)
+        .environment(downloads)
         .preferredColorScheme(.dark)
         .task { await app.start() }
     }

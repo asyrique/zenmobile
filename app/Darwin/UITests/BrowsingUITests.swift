@@ -82,6 +82,16 @@ final class BrowsingUITests: XCTestCase {
         element("promptOK").tap()
         waitFor(app.webViews.staticTexts["Confirmed"], timeout: 30)
 
+        // A download lands in Downloads (tab switcher → Downloads).
+        waitFor(app.webViews.links["Download a file"]).tap()
+        element("tabsButton").tap()
+        waitFor(element("downloadsButton")).tap()
+        let download = waitFor(app.staticTexts.matching(identifier: "downloadName").firstMatch, timeout: 60)
+        XCTAssertEqual(download.label, "zen-e2e.bin")
+        screenshot("downloads")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.swipeDown(velocity: .fast)
+
         // Somewhere else in the same tab, through its address, then back.
         // The address bar starts with the page's address; clear it first.
         element("addressPill").tap()

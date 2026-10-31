@@ -34,9 +34,12 @@ import SkipFuse
 
     /// Where the open tabs are saved; nil keeps them in memory only.
     @ObservationIgnored private let storeURL: URL?
+    /// Where pages' downloads go.
+    @ObservationIgnored private let downloads: Downloads?
 
-    init(storeURL: URL? = nil) {
+    init(storeURL: URL? = nil, downloads: Downloads? = nil) {
         self.storeURL = storeURL
+        self.downloads = downloads
         restore()
     }
 
@@ -63,6 +66,7 @@ import SkipFuse
 
     private func makePage(url: URL, title: String, isPrivate: Bool = false) -> WebPage {
         let page = WebPage(url: url, title: title, isPrivate: isPrivate)
+        page.downloads = downloads
         // Pages change as the user browses; save each change, so a tab
         // reopens where it was even if the app is killed.
         page.onChange = { [weak self] in self?.save() }

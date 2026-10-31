@@ -92,12 +92,12 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Bool, Bool) -> Void) {
         initialURL = url
         // Private mode keeps the session's cookies, storage and cache in
         // memory, apart from normal tabs.
         session = GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(isPrivate).build())
-        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow)
+        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow, downloadsDirectory: downloadsDirectory, downloadReported: onDownload)
         session.navigationDelegate = delegate
         session.contentDelegate = delegate
         session.historyDelegate = delegate
@@ -178,12 +178,14 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
     let progressChanged: (Int, Bool) -> Void
     let securityChanged: (Bool) -> Void
     let openWindow: (URL) -> Void
+    let downloadsDirectory: String
+    let downloadReported: (String, Bool, Bool) -> Void
     var canGoBack = false
     var canGoForward = false
     var progress = 0
     var isLoading = false
 
-    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void) {
+    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Bool, Bool) -> Void) {
         self.shouldCancel = shouldCancel
         self.locationChanged = locationChanged
         self.titleChanged = titleChanged
@@ -191,6 +193,18 @@ private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSess
         self.progressChanged = progressChanged
         self.securityChanged = securityChanged
         self.openWindow = openWindow
+        self.downloadsDirectory = downloadsDirectory
+        self.downloadReported = downloadReported
+    }
+
+    // What Gecko can't show (a file to download, a link with download):
+    // save it to the Downloads folder (GeckoDownloads.kt).
+    override func onExternalResponse(session: GeckoSession, response: org.mozilla.geckoview.WebResponse) {
+        if downloadsDirectory.isEmpty {
+            response.body?.close()
+            return
+        }
+        GeckoDownloads.save(response, java.io.File(downloadsDirectory), downloadReported)
     }
 
     override func onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest) -> GeckoResult<AllowOrDeny>? {
