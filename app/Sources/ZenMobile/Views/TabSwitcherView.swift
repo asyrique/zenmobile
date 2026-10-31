@@ -68,6 +68,12 @@ struct TabSwitcherView: View {
                 }
                 .padding(.horizontal, 24)
             }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .accessibilityIdentifier("tabsDone")
+                }
+            }
             // A page opened from the library (or desktop tabs) closes the
             // switcher; closing tabs doesn't.
             .onChange(of: browser.tabs.count) { before, after in

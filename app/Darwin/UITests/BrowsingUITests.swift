@@ -145,8 +145,7 @@ final class BrowsingUITests: XCTestCase {
         element("tabsButton").tap()
         waitFor(app.staticTexts[title], timeout: 30)
         screenshot("tab-switcher")
-
-        app.swipeDown(velocity: .fast)
+        element("tabsDone").tap()
 
         // A link that opens a new window opens a new tab.
         waitFor(app.webViews.links["Open in a new tab"]).tap()
@@ -154,7 +153,7 @@ final class BrowsingUITests: XCTestCase {
         element("tabsButton").tap()
         waitFor(app.staticTexts[secondTitle], timeout: 30)
         screenshot("new-window-tab")
-        app.swipeDown(velocity: .fast)
+        element("tabsDone").tap()
 
         // A private tab: marked in the tab switcher, not kept after a restart.
         waitFor(element("newTabButton")).tap()
@@ -168,7 +167,7 @@ final class BrowsingUITests: XCTestCase {
         element("tabsButton").tap()
         findInTabs("Private")
         screenshot("private-tab")
-        app.swipeDown(velocity: .fast)
+        element("tabsDone").tap()
 
         // History suggests the page in a new tab's address bar.
         waitFor(element("newTabButton")).tap()
