@@ -72,6 +72,10 @@ real UI.
 - [x] Ad blocking, opt-in: uBlock Origin from addons.mozilla.org in GeckoView; EasyList's
       domain rules as a second WKContentRuleList on iOS.
 - [x] Find in page; download progress.
+- [x] Every page prompt answered: <select> menus, date and time pickers, HTTP sign-in,
+      share, leave-page and resend-form (Android; WebKit has its own for most).
+- [x] Long-press menu for links and images (Android; WebKit's own on iOS), full-screen
+      video, links that open other apps, desktop site, and a choice of search engine.
 - [x] Logins (application-services `logins`), synced: saved and filled in the browser
       (Gecko's login manager on Android, a script on iOS), and Settings → Passwords behind
       the screen lock. See [ADR 0007](decisions/0007-logins.md).
