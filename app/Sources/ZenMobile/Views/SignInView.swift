@@ -89,6 +89,8 @@ struct AccountView: View {
                     .onChange(of: blockAds) { _, _ in
                         Task { await ContentBlocking.apply() }
                     }
+                NavigationLink("Clear browsing data") { ClearBrowsingDataView() }
+                    .accessibilityIdentifier("clearDataButton")
             } header: {
                 Text("Privacy")
             } footer: {
@@ -110,5 +112,47 @@ struct AccountView: View {
         let ads = "Ad blocking uses EasyList, updated every few days."
         #endif
         return "Stops known trackers from following you across websites. \(ads) Turn either off if a site doesn't work."
+    }
+}
+
+/// Settings → Privacy → Clear browsing data.
+struct ClearBrowsingDataView: View {
+    @Environment(Places.self) var places
+    @State var history = true
+    @State var siteData = true
+    @State var cache = true
+    @State var isClearing = false
+    @State var cleared = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("History", isOn: $history)
+                Toggle("Cookies and site data", isOn: $siteData)
+                Toggle("Cached images and files", isOn: $cache)
+            } footer: {
+                Text("Clearing cookies signs you out of most sites. Open tabs, bookmarks, passwords and downloads stay.")
+            }
+            Section {
+                Button("Clear", role: .destructive) {
+                    isClearing = true
+                    Task {
+                        if history {
+                            await places.clearHistory()
+                        }
+                        await BrowsingData.clear(siteData: siteData, cache: cache)
+                        isClearing = false
+                        cleared = true
+                    }
+                }
+                .disabled(isClearing || !(history || siteData || cache))
+                .accessibilityIdentifier("clearDataConfirm")
+                if cleared {
+                    Text("Cleared").foregroundStyle(.secondary)
+                        .accessibilityIdentifier("clearDataDone")
+                }
+            }
+        }
+        .navigationTitle("Clear browsing data")
     }
 }

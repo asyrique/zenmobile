@@ -123,7 +123,10 @@ struct BrowserView: View {
                 .id(tab.id)
                 .accessibilityIdentifier("webContent")
         } else {
-            StartPage(showSpaces: { showSpaces = true }, showAddressBar: { openAddressBar(editingTab: false) })
+            StartPage(
+                showSpaces: { showSpaces = true },
+                showAddressBar: { openAddressBar(editingTab: false) },
+                open: { url in browser.open(url) })
         }
     }
 }
@@ -365,9 +368,12 @@ struct BottomBar: View {
 /// Firefox is offered once, can be put off, and lives in Settings after that.
 struct StartPage: View {
     @Environment(AppModel.self) var app
+    @Environment(Places.self) var places
     @AppStorage("syncPromptDismissed") var syncPromptDismissed = false
     let showSpaces: () -> Void
     let showAddressBar: () -> Void
+    let open: (URL) -> Void
+    @State var topSites: [Places.Suggestion] = []
 
     var body: some View {
         VStack(spacing: 20) {
@@ -381,12 +387,37 @@ struct StartPage: View {
             if case .signedIn = app.account {
                 Button("Open a Space", action: showSpaces)
             }
+            if !topSites.isEmpty {
+                topSitesGrid
+            }
             Spacer()
             syncPrompt
         }
         .padding(32)
+        .task { topSites = await places.topSites() }
         // Keep everything clear of the floating bottom bar.
         .padding(.bottom, BottomBar.height)
+    }
+
+    /// The most visited sites, as tiles with the site's initial.
+    private var topSitesGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 16) {
+            ForEach(topSites) { site in
+                Button { open(site.url) } label: {
+                    VStack(spacing: 6) {
+                        Text(String((site.url.host ?? site.title).replacingOccurrences(of: "www.", with: "").prefix(1)).uppercased())
+                            .font(.title2.bold())
+                            .frame(width: 52, height: 52)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(Color.primary.opacity(0.12)))
+                        Text(site.title)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("topSite")
+            }
+        }
     }
 
     @ViewBuilder private var syncPrompt: some View {

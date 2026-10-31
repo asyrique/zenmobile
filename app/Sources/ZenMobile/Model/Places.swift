@@ -97,6 +97,15 @@ import ZenCore
         }
     }
 
+    /// The most visited sites (by Firefox's frecency), for the start page.
+    func topSites(limit: Int = 8) async -> [Suggestion] {
+        let sites = await read { try $0.getTopFrecentSiteInfos(numItems: Int32(limit), thresholdOption: .none) } ?? []
+        return sites.compactMap { site in
+            guard let url = URL(string: site.url) else { return nil }
+            return Suggestion(url: url, title: site.title.flatMap { $0.isEmpty ? nil : $0 } ?? (url.host ?? site.url))
+        }
+    }
+
     func clearHistory() async {
         _ = await read { try $0.deleteEverythingHistory() }
     }
