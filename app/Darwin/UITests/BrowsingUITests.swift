@@ -50,6 +50,17 @@ final class BrowsingUITests: XCTestCase {
         app.descendants(matching: .any)[identifier].firstMatch
     }
 
+    /// Finds a tab card's text, scrolling the tab switcher's row if needed
+    /// (its cards are created as they scroll into view).
+    @discardableResult
+    private func findInTabs(_ text: String) -> XCUIElement {
+        let label = app.staticTexts[text]
+        for _ in 0..<4 where !label.waitForExistence(timeout: 3) {
+            app.scrollViews.firstMatch.swipeLeft()
+        }
+        return waitFor(label, timeout: 10)
+    }
+
     @discardableResult
     private func waitFor(_ element: XCUIElement, timeout: TimeInterval = 30) -> XCUIElement {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Timed out waiting for \(element)")
@@ -164,7 +175,7 @@ final class BrowsingUITests: XCTestCase {
         element("addressGo").tap()
         waitFor(app.webViews.staticTexts[heading], timeout: 60)
         element("tabsButton").tap()
-        waitFor(app.staticTexts["Private"], timeout: 30)
+        findInTabs("Private")
         screenshot("private-tab")
         app.swipeDown(velocity: .fast)
 

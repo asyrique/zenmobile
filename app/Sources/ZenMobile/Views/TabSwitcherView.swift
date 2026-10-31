@@ -26,10 +26,14 @@ struct TabSwitcherView: View {
                             }
                             .padding(24)
                         }
-                        // Open on the current tab. Scrolls one update after
-                        // appearing: on Android the proxy can only scroll once
-                        // the row has been laid out.
-                        .onAppear { scrollTarget = browser.selectedTabId }
+                        // Open on the current tab, once the sheet has come
+                        // up and laid the row out: scrolling earlier is
+                        // ignored (iOS, while presenting) or does nothing
+                        // (Android, before the row's first layout).
+                        .task {
+                            try? await Task.sleep(for: .milliseconds(300))
+                            scrollTarget = browser.selectedTabId
+                        }
                         .onChange(of: scrollTarget) { _, target in
                             if let target {
                                 proxy.scrollTo(target, anchor: .center)
