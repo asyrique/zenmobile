@@ -50,7 +50,11 @@ import WebKit
             return
         }
         guard let store = WKContentRuleListStore.default() else { return }
-        let stored = (try? await store.lookUpContentRuleList(forIdentifier: Self.identifier)) ?? nil
+        let stored = await withCheckedContinuation { continuation in
+            store.lookUpContentRuleList(forIdentifier: Self.identifier) { list, _ in
+                continuation.resume(returning: UncheckedSendable(value: list))
+            }
+        }.value
         let updated = UserDefaults.standard.object(forKey: Self.updatedKey) as? Date ?? .distantPast
         if let stored, Date().timeIntervalSince(updated) < Self.maxAge {
             update(stored)
@@ -74,6 +78,12 @@ import WebKit
         } catch {
             logger.error("Updating the tracker list failed: \(error)")
         }
+    }
+
+    /// WebKit hands the stored list to a callback; it's only used on the
+    /// main actor.
+    private struct UncheckedSendable<Value>: @unchecked Sendable {
+        let value: Value
     }
 
     private func update(_ list: WKContentRuleList?) {
