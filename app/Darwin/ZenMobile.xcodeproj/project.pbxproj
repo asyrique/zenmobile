@@ -1,0 +1,429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		35D107F266F00C421ABD3EA1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 429E6B61F5485E8644FCEC05 /* Foundation.framework */; };
+		467CA78B4B2835797D04EC5B /* BrowsingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F05B0C0875882C0D5C2D5498 /* BrowsingUITests.swift */; };
+		491F27822DA55B72004926EE /* ZenMobile in Frameworks */ = {isa = PBXBuildFile; productRef = 491F27812DA55B72004926EE /* ZenMobile */; };
+		491F27832DA55B72004926EE /* ZenMobile in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 491F27812DA55B72004926EE /* ZenMobile */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		496BDBEE2B8A7E9C00C09264 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 496BDBED2B8A7E9C00C09264 /* Localizable.xcstrings */; };
+		499CD43B2AC5B799001AE8D8 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F90C2B2A52156200F06D93 /* Main.swift */; };
+		499CD4402AC5B799001AE8D8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49F90C2F2A52156300F06D93 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EBB58673C42E2AE05E598BE8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49F90C202A52156200F06D93 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 499CD4382AC5B799001AE8D8;
+			remoteInfo = "ZenMobile App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		499CD44A2AC5B9C6001AE8D8 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				491F27832DA55B72004926EE /* ZenMobile in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		429E6B61F5485E8644FCEC05 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		4900101C2BACEA710000DE33 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		493609562A6B7EAE00C401E2 /* ZenMobile */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = ZenMobile; path = ..; sourceTree = "<group>"; };
+		496BDBEB2B89A47800C09264 /* ZenMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZenMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		496BDBED2B8A7E9C00C09264 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; name = Localizable.xcstrings; path = ../Sources/ZenMobile/Resources/Localizable.xcstrings; sourceTree = "<group>"; };
+		496EB72F2A6AE4DE00C1253A /* Skip.env */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Skip.env; path = ../Skip.env; sourceTree = "<group>"; };
+		496EB72F2A6AE4DE00C1253B /* ZenMobile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ZenMobile.xcconfig; sourceTree = "<group>"; };
+		496EB72F2A6AE4DE00C1253C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		4971EFA92FA4FEA50002D3F7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		499AB9082B0581F4005E8330 /* plugins */ = {isa = PBXFileReference; lastKnownFileType = folder; name = plugins; path = ../../Intermediates.noindex/BuildToolPluginIntermediates; sourceTree = BUILT_PRODUCTS_DIR; };
+		49F90C2B2A52156200F06D93 /* Main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Main.swift; path = Sources/Main.swift; sourceTree = SOURCE_ROOT; };
+		49F90C2F2A52156300F06D93 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		49F90C312A52156300F06D93 /* Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Entitlements.plist; sourceTree = "<group>"; };
+		E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZenMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F05B0C0875882C0D5C2D5498 /* BrowsingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowsingUITests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		499CD43C2AC5B799001AE8D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				491F27822DA55B72004926EE /* ZenMobile in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA733A84F9059C52184883C4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				35D107F266F00C421ABD3EA1 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0F622C3D73B131F51C00CE67 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				F05B0C0875882C0D5C2D5498 /* BrowsingUITests.swift */,
+			);
+			name = UITests;
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		496BDBEC2B89A47800C09264 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				496BDBEB2B89A47800C09264 /* ZenMobile.app */,
+				E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		49AB54462B066A7E007B79B2 /* SkipStone */ = {
+			isa = PBXGroup;
+			children = (
+				499AB9082B0581F4005E8330 /* plugins */,
+			);
+			name = SkipStone;
+			sourceTree = "<group>";
+		};
+		49F90C1F2A52156200F06D93 = {
+			isa = PBXGroup;
+			children = (
+				496EB72F2A6AE4DE00C1253C /* README.md */,
+				496EB72F2A6AE4DE00C1253A /* Skip.env */,
+				496EB72F2A6AE4DE00C1253B /* ZenMobile.xcconfig */,
+				496BDBED2B8A7E9C00C09264 /* Localizable.xcstrings */,
+				493609562A6B7EAE00C401E2 /* ZenMobile */,
+				49F90C2A2A52156200F06D93 /* App */,
+				49AB54462B066A7E007B79B2 /* SkipStone */,
+				496BDBEC2B89A47800C09264 /* Products */,
+				E7B86291D218D80903BA4AB7 /* Frameworks */,
+				0F622C3D73B131F51C00CE67 /* UITests */,
+			);
+			sourceTree = "<group>";
+		};
+		49F90C2A2A52156200F06D93 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				49F90C2B2A52156200F06D93 /* Main.swift */,
+				49F90C2F2A52156300F06D93 /* Assets.xcassets */,
+				49F90C312A52156300F06D93 /* Entitlements.plist */,
+				4900101C2BACEA710000DE33 /* Info.plist */,
+				4971EFA92FA4FEA50002D3F7 /* InfoPlist.xcstrings */,
+			);
+			name = App;
+			sourceTree = "<group>";
+		};
+		DED3D113CB0A4552F0B6373A /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				429E6B61F5485E8644FCEC05 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		E7B86291D218D80903BA4AB7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DED3D113CB0A4552F0B6373A /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		499CD4382AC5B799001AE8D8 /* ZenMobile App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 499CD4412AC5B799001AE8D8 /* Build configuration list for PBXNativeTarget "ZenMobile App" */;
+			buildPhases = (
+				499CD43A2AC5B799001AE8D8 /* Sources */,
+				499CD43C2AC5B799001AE8D8 /* Frameworks */,
+				499CD43E2AC5B799001AE8D8 /* Resources */,
+				499CD4452AC5B869001AE8D8 /* Run skip gradle */,
+				499CD44A2AC5B9C6001AE8D8 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ZenMobile App";
+			packageProductDependencies = (
+				491F27812DA55B72004926EE /* ZenMobile */,
+			);
+			productName = App;
+			productReference = 496BDBEB2B89A47800C09264 /* ZenMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A93B9CF25FB14C4F8B519B50 /* ZenMobileUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 30DDC60772F9AB59BFA4EF77 /* Build configuration list for PBXNativeTarget "ZenMobileUITests" */;
+			buildPhases = (
+				90F0CBDB2067EA8EA7A2CDD3 /* Sources */,
+				EA733A84F9059C52184883C4 /* Frameworks */,
+				EC10EE6887DD4CB4E591CC0B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F88AA728A9E8BD7A8CF1B7CA /* PBXTargetDependency */,
+			);
+			name = ZenMobileUITests;
+			productName = ZenMobileUITests;
+			productReference = E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		49F90C202A52156200F06D93 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1630;
+			};
+			buildConfigurationList = 49F90C232A52156200F06D93 /* Build configuration list for PBXProject "ZenMobile" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				es,
+				ja,
+				"zh-Hans",
+			);
+			mainGroup = 49F90C1F2A52156200F06D93;
+			productRefGroup = 496BDBEC2B89A47800C09264 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				499CD4382AC5B799001AE8D8 /* ZenMobile App */,
+				A93B9CF25FB14C4F8B519B50 /* ZenMobileUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		499CD43E2AC5B799001AE8D8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				499CD4402AC5B799001AE8D8 /* Assets.xcassets in Resources */,
+				496BDBEE2B8A7E9C00C09264 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EC10EE6887DD4CB4E591CC0B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		499CD4452AC5B869001AE8D8 /* Run skip gradle */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run skip gradle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/sh -e";
+			shellScript = "if [ \"${SKIP_ZERO}\" != \"\" ]; then\n  echo \"note: skipping skip due to SKIP_ZERO\"\n  exit 0\nelif [ \"${ENABLE_PREVIEWS}\" = \"YES\" ]; then\n  echo \"note: skipping skip due to ENABLE_PREVIEWS\"\n  exit 0\nelif [ \"${ACTION}\" = \"install\" ]; then\n  echo \"note: skipping skip due to archive install\"\n  exit 0\nelif [ \"${SKIP_ACTION}\" = \"none\" ]; then\n  echo \"note: skipping skip due to SKIP_ACTION none\"\n  exit 0\nelse\n  SKIP_ACTION=\"${SKIP_ACTION:-launch}\"\nfi\nPATH=${BUILD_ROOT}/Release:${BUILD_ROOT}/Debug:${BUILD_ROOT}/../../SourcePackages/artifacts/skip/skip/skip.artifactbundle/macos:${PATH}:${HOMEBREW_PREFIX:-/opt/homebrew}/bin\necho \"note: running gradle build with: $(which skip) gradle -p ${PWD}/../Android ${SKIP_ACTION:-launch}${CONFIGURATION:-Debug}\"\nskip gradle -p ../Android ${SKIP_ACTION:-launch}${CONFIGURATION:-Debug}\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		499CD43A2AC5B799001AE8D8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				499CD43B2AC5B799001AE8D8 /* Main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		90F0CBDB2067EA8EA7A2CDD3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				467CA78B4B2835797D04EC5B /* BrowsingUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F88AA728A9E8BD7A8CF1B7CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "ZenMobile App";
+			target = 499CD4382AC5B799001AE8D8 /* ZenMobile App */;
+			targetProxy = EBB58673C42E2AE05E598BE8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1126DE06E76B86059C21B0AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.asyrique.zenmobile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "ZenMobile App";
+			};
+			name = Debug;
+		};
+		499CD4422AC5B799001AE8D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 496EB72F2A6AE4DE00C1253B /* ZenMobile.xcconfig */;
+			buildSettings = {
+				ENABLE_PREVIEWS = YES;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+			};
+			name = Debug;
+		};
+		499CD4432AC5B799001AE8D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 496EB72F2A6AE4DE00C1253B /* ZenMobile.xcconfig */;
+			buildSettings = {
+				ENABLE_PREVIEWS = YES;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+			};
+			name = Release;
+		};
+		49F90C4B2A52156300F06D93 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		49F90C4C2A52156300F06D93 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		5B71EE26D084738E98FFFF85 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.asyrique.zenmobile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "ZenMobile App";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		30DDC60772F9AB59BFA4EF77 /* Build configuration list for PBXNativeTarget "ZenMobileUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B71EE26D084738E98FFFF85 /* Release */,
+				1126DE06E76B86059C21B0AD /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		499CD4412AC5B799001AE8D8 /* Build configuration list for PBXNativeTarget "ZenMobile App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				499CD4422AC5B799001AE8D8 /* Debug */,
+				499CD4432AC5B799001AE8D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		49F90C232A52156200F06D93 /* Build configuration list for PBXProject "ZenMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49F90C4B2A52156300F06D93 /* Debug */,
+				49F90C4C2A52156300F06D93 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		491F27812DA55B72004926EE /* ZenMobile */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ZenMobile;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 49F90C202A52156200F06D93 /* Project object */;
+}

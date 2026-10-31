@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The end-to-end tests load this page in the same tab as index.html, then go back.
+       CI serves it with: python3 -m http.server 8765 -d scripts/ci/e2e-site -->
+  <title>Zen E2E second</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center;
+           background: linear-gradient(135deg, #d84f8a, #58182f); color: white; text-align: center; }
+    h1 { font-size: 2.5rem; margin: 0 0 .5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Second page</h1>
+    <p>If you can read this, the browser went to a second page in the same tab.</p>
+  </main>
+</body>
+</html>

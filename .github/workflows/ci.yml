@@ -1,0 +1,290 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths-ignore: ["docs/**", "**/*.md"]
+  pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Everything is built on macos-latest (Apple silicon), arm64 only. The
+# Android end-to-end test runs the arm64 APK built here, unmodified, on an
+# arm64 Linux runner in Redroid (Android as a container), because GitHub's
+# runners can't run the Android emulator.
+jobs:
+  # Rust tests, then the generated Swift bindings compiled and tested against
+  # the real library. The bindings are platform-independent, so the other
+  # jobs reuse them from here.
+  core:
+    name: Core (Rust + Swift)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: core
+      - name: Cache NSS
+        id: nss-cache
+        uses: actions/cache@v4
+        with:
+          path: .build-deps/application-services/libs/desktop
+          key: nss-desktop-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+      - name: Build NSS
+        if: steps.nss-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gyp" && "$RUNNER_TEMP/gyp/bin/pip" install -q gyp-next
+          export PATH="$RUNNER_TEMP/gyp/bin:$PATH"
+          brew install ninja
+          scripts/build-nss.sh desktop
+      - name: Rust tests
+        run: |
+          . scripts/env.sh
+          cd core
+          cargo test --workspace
+      - name: Swift tests
+        env:
+          ZEN_NETWORK_TESTS: "1"
+        run: scripts/test-swift.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zencore-bindings
+          path: |
+            core/swift/ZenCore/Sources/ZenCore/Generated
+            core/swift/ZenCore/Sources/ZenCoreFFI/include
+          if-no-files-found: error
+
+  # The iOS app, and the end-to-end browsing test (app/Darwin/UITests) on a
+  # simulator, in one xcodebuild invocation.
+  ios:
+    name: iOS app + E2E
+    runs-on: macos-latest
+    needs: core
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: ios
+      - name: Cache NSS
+        id: nss-cache
+        uses: actions/cache@v4
+        with:
+          path: .build-deps/application-services/libs/ios
+          key: nss-ios-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+      - name: Build NSS
+        if: steps.nss-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gyp" && "$RUNNER_TEMP/gyp/bin/pip" install -q gyp-next
+          export PATH="$RUNNER_TEMP/gyp/bin:$PATH"
+          brew install ninja
+          scripts/build-nss.sh ios
+      - name: Build ZenCoreRust.xcframework
+        run: scripts/build-core-apple.sh ios ios-sim
+      - uses: actions/download-artifact@v4
+        with:
+          name: zencore-bindings
+          path: core/swift/ZenCore/Sources
+      - uses: skiptools/actions/setup-skip@v1
+        with:
+          run-doctor: "false"
+      - name: Serve the end-to-end test page
+        run: python3 -m http.server 8765 --bind 127.0.0.1 --directory scripts/ci/e2e-site > /dev/null 2>&1 &
+      - name: Build and test iOS app (simulator)
+        working-directory: app
+        env:
+          # xcodebuild passes TEST_RUNNER_-prefixed variables to the tests.
+          TEST_RUNNER_ZEN_SCREENSHOT_DIR: ${{ github.workspace }}/build/screenshots-ios
+        run: |
+          SIM_ID="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          for runtime in sorted((r for r in runtimes if "iOS" in r), reverse=True):
+              phones = [d for d in runtimes[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"])
+                  break
+          ')"
+          echo "Simulator: $SIM_ID"
+          xcodebuild test \
+            -project Darwin/ZenMobile.xcodeproj \
+            -scheme "ZenMobile App" \
+            -destination "platform=iOS Simulator,id=$SIM_ID" \
+            -derivedDataPath ../build/DerivedData \
+            -resultBundlePath ../build/ios-tests.xcresult \
+            -skipPackagePluginValidation -skipMacroValidation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO SKIP_ACTION=none
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-ios
+          path: build/screenshots-ios
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-test-results
+          path: build/ios-tests.xcresult
+          if-no-files-found: ignore
+
+  # NSS and the Rust core for Android, then the arm64 APK (Skip compiles the
+  # Swift, transpiles the Kotlin side, Gradle pulls in GeckoView) and the
+  # end-to-end test APK, signed with the same debug key.
+  android:
+    name: Android app
+    runs-on: macos-latest
+    needs: core
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select NDK
+        run: echo "ANDROID_NDK_HOME=${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: android
+      - name: Cache NSS
+        id: nss-cache
+        uses: actions/cache@v4
+        with:
+          path: .build-deps/application-services/libs/android
+          key: nss-android-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+      - name: Build NSS
+        if: steps.nss-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gyp" && "$RUNNER_TEMP/gyp/bin/pip" install -q gyp-next
+          export PATH="$RUNNER_TEMP/gyp/bin:$PATH"
+          brew install ninja
+          scripts/build-nss.sh android
+      - name: Build libzen_core.so
+        run: scripts/build-core-android.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: zencore-bindings
+          path: core/swift/ZenCore/Sources
+      # Skip's build folder (the Android Swift build of every Skip package,
+      # and Gradle's outputs) and Gradle's dependencies. Keyed on the
+      # dependencies, so a run only recompiles our own modules.
+      - name: Cache Android build
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/.build
+            !app/.build/Android/app/outputs
+            app/Android/.gradle
+            ~/.gradle/caches
+          key: android-build-${{ hashFiles('app/Package.swift', 'app/Sources/ZenMobile/Skip/skip.yml', 'app/Android/**/*.kts') }}
+          restore-keys: android-build-
+      - uses: skiptools/actions/setup-skip@v1
+        with:
+          install-swift-android-sdk: "true"
+          run-doctor: "false"
+      - name: Install Android platform
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.2" "build-tools;37.0.0" > /dev/null
+      # Gradle runs Skip itself (transpile, then the Android Swift build) and
+      # builds both APKs in one go. Skip builds debug native libraries for
+      # the host architecture (arm64), the only one we ship.
+      - name: Build APKs
+        env:
+          # What `skip export --debug-info line-tables` passes to Gradle:
+          # line tables instead of full debug info for the native libraries,
+          # faster to build and package, still enough for crash backtraces.
+          SKIP_EXPORT_DEBUG_INFO: line-tables
+        run: |
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest --project-dir app/Android --console=plain
+          mkdir -p build/android
+          cp app/.build/Android/app/outputs/apk/debug/app-debug.apk build/android/ZenMobile-debug.apk
+          cp app/.build/Android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk build/android/e2e-androidTest.apk
+          ls -la build/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/android
+          if-no-files-found: error
+
+  # Runs the APK users download (from the android job, unmodified) on
+  # arm64 Android. GitHub's runners can't run the Android emulator (no
+  # KVM / nested virtualization), so Android runs as a container (Redroid)
+  # on an arm64 Linux runner, sharing its kernel: native arm64, no emulation.
+  android-e2e:
+    name: Android E2E
+    runs-on: ubuntu-24.04-arm
+    needs: android
+    timeout-minutes: 30
+    env:
+      ANDROID_SERIAL: localhost:5555
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: apk
+      - name: Start Android (Redroid)
+        run: scripts/ci/start-redroid.sh
+      - name: Serve the end-to-end test page
+        run: python3 -m http.server 8765 --bind 0.0.0.0 --directory scripts/ci/e2e-site > /dev/null 2>&1 &
+      - name: End-to-end browsing test
+        env:
+          # Redroid reaches the runner through Docker's bridge.
+          E2E_URL: http://172.17.0.1:8765/
+          E2E_TITLE: Zen E2E
+        run: |
+          APP_APK="$(ls apk/*.apk | grep -v androidTest | head -1)"
+          scripts/ci/run-android-e2e.sh "$APP_APK" apk/e2e-androidTest.apk build/e2e-android
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-android
+          path: build/e2e-android/screenshots
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-e2e-logs
+          path: build/e2e-android/*.txt
+          if-no-files-found: ignore
+
+  # Puts the end-to-end screenshots inline in the run summary. The repository
+  # is public, so the images are committed to the ci-screenshots branch (one
+  # folder per run, newest 30 kept) and referenced by their raw URLs.
+  screenshots:
+    name: Screenshots
+    runs-on: macos-latest
+    needs: [ios, android-e2e]
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: screenshots-*
+          path: build/screenshots
+      - name: Publish screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci/publish-screenshots.sh build/screenshots
