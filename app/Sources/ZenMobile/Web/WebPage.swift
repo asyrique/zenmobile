@@ -139,8 +139,8 @@ struct FindResult: Equatable {
         configuration.backwards = backwards
         configuration.wraps = true
         Task {
-            let result = await webView.find(text, configuration: configuration)
-            findResult = FindResult(found: result.matchFound, current: 0, total: 0)
+            let result = try? await webView.find(text, configuration: configuration)
+            findResult = FindResult(found: result?.matchFound ?? false, current: 0, total: 0)
         }
         #endif
     }
