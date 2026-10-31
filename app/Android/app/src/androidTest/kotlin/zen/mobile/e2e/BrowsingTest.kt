@@ -88,6 +88,13 @@ class BrowsingTest {
         Thread.sleep(10_000)
         screenshot("page")
 
+        // A JavaScript confirm() shows our dialog; OK reaches the page.
+        waitFor(By.text("Ask to confirm"), 30_000).click()
+        waitFor(By.res("promptMessage"), 30_000)
+        screenshot("confirm-dialog")
+        waitFor(By.res("promptOK")).click()
+        waitFor(By.text("Confirmed"), 30_000)
+
         // Somewhere else in the same tab, through its address. The address
         // bar starts with the page's address; clear it first.
         waitFor(By.res("addressPill")).click()

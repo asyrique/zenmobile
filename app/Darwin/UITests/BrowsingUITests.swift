@@ -75,6 +75,13 @@ final class BrowsingUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         screenshot("page")
 
+        // A JavaScript confirm() shows our dialog; OK reaches the page.
+        waitFor(app.webViews.buttons["Ask to confirm"]).tap()
+        waitFor(element("promptMessage"))
+        screenshot("confirm-dialog")
+        element("promptOK").tap()
+        waitFor(app.webViews.staticTexts["Confirmed"], timeout: 30)
+
         // Somewhere else in the same tab, through its address, then back.
         // The address bar starts with the page's address; clear it first.
         element("addressPill").tap()

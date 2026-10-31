@@ -6,6 +6,26 @@ import SkipFuse
 import WebKit
 #endif
 
+/// Something a page asks the user: a JavaScript dialog or a permission.
+struct PagePrompt: Identifiable {
+    enum Kind: String {
+        /// alert(): a message and OK.
+        case alert
+        /// confirm(): OK or Cancel.
+        case confirm
+        /// prompt(): a line of text.
+        case text
+        /// A site permission (camera, microphone, location, notifications):
+        /// Allow or Block.
+        case permission
+    }
+
+    let id: Int
+    let kind: Kind
+    let message: String
+    var defaultText = ""
+}
+
 /// One tab's live web content.
 ///
 /// It owns the engine (a WKWebView on iOS, a GeckoSession on Android) for as
@@ -22,6 +42,8 @@ import WebKit
     private(set) var progress = 0.0
     /// Whether the page and everything on it came over a secure connection.
     private(set) var isSecure = false
+    /// What the page is asking the user, if anything.
+    private(set) var prompt: PagePrompt?
 
     /// A private page keeps nothing (cookies, storage, cache) once closed,
     /// and its tab isn't saved.
@@ -34,6 +56,8 @@ import WebKit
     /// Called when the page opens a new window (a target=_blank link,
     /// window.open); the browser opens it as a new tab.
     @ObservationIgnored var onOpenWindow: ((URL) -> Void)?
+    @ObservationIgnored private var promptAnswer: ((Bool, String?) -> Void)?
+    @ObservationIgnored private var promptCount = 0
 
     init(url: URL, title: String = "", isPrivate: Bool = false, shouldCancel: @escaping (URL) -> Bool = { _ in false }) {
         self.url = url
@@ -84,8 +108,18 @@ import WebKit
         #endif
     }
 
+    /// Answers the page's prompt: whether the user accepted (OK, Allow) and,
+    /// for a text prompt, what they typed.
+    func answerPrompt(accepted: Bool, text: String? = nil) {
+        let answer = promptAnswer
+        prompt = nil
+        promptAnswer = nil
+        answer?(accepted, text)
+    }
+
     /// Ends the page for good when its tab closes.
     func close() {
+        answerPrompt(accepted: false)
         #if os(Android)
         gecko?.close()
         gecko = nil
@@ -126,6 +160,15 @@ import WebKit
         onOpenWindow?(url)
     }
 
+    /// Shows a prompt; `answer` gets the user's reply. One at a time: asking
+    /// again before the first is answered dismisses the first.
+    fileprivate func ask(_ kind: PagePrompt.Kind, message: String, defaultText: String = "", answer: @escaping (Bool, String?) -> Void) {
+        answerPrompt(accepted: false)
+        promptCount += 1
+        prompt = PagePrompt(id: promptCount, kind: kind, message: message, defaultText: defaultText)
+        promptAnswer = answer
+    }
+
     // MARK: Engines
 
     #if os(Android)
@@ -145,7 +188,12 @@ import WebKit
             onHistoryChange: { [weak self] back, forward in self?.didChange(canGoBack: back, canGoForward: forward) },
             onProgressChange: { [weak self] percent, loading in self?.didChange(progress: Double(percent) / 100, isLoading: loading) },
             onSecurityChange: { [weak self] secure in self?.didChange(isSecure: secure) },
-            onOpenWindow: { [weak self] url in self?.openWindow(url) })
+            onOpenWindow: { [weak self] url in self?.openWindow(url) },
+            onPrompt: { [weak self] id, kind, message, defaultText in
+                self?.ask(PagePrompt.Kind(rawValue: kind) ?? .alert, message: message, defaultText: defaultText ?? "") { [weak self] accepted, text in
+                    self?.gecko?.answerPrompt(id: id, accepted: accepted, text: text)
+                }
+            })
         gecko = tab
         return tab
     }
@@ -229,6 +277,31 @@ import WebKit
             return .cancel
         }
         return .allow
+    }
+
+    // JavaScript dialogs. Camera, microphone and location requests use
+    // WebKit's own prompts (and the usage descriptions in Info.plist).
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async {
+        _ = await ask(.alert, message)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async -> Bool {
+        await ask(.confirm, message).accepted
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo) async -> String? {
+        let answer = await ask(.text, prompt, defaultText: defaultText ?? "")
+        return answer.accepted ? (answer.text ?? "") : nil
+    }
+
+    private func ask(_ kind: PagePrompt.Kind, _ message: String, defaultText: String = "") async -> (accepted: Bool, text: String?) {
+        guard let page else { return (false, nil) }
+        return await withCheckedContinuation { continuation in
+            page.ask(kind, message: message, defaultText: defaultText) { accepted, text in
+                continuation.resume(returning: (accepted, text))
+            }
+        }
     }
 
     // A target=_blank link or window.open: open it as a new tab instead.

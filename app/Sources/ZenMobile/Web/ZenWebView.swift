@@ -78,6 +78,9 @@ private final class ZenGeckoRuntime {
 final class GeckoTab {
     private let session: GeckoSession
     private let delegate: ZenGeckoDelegate
+    /// Dialogs, permission requests and file pickers (GeckoPrompts.kt).
+    // SKIP @nobridge
+    let prompts: GeckoPrompts
     /// What to load when the session first opens.
     private var initialURL: URL
     /// The view showing the session, if any. A session can only be in one
@@ -89,7 +92,7 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void) {
         initialURL = url
         // Private mode keeps the session's cookies, storage and cache in
         // memory, apart from normal tabs.
@@ -99,6 +102,9 @@ final class GeckoTab {
         session.contentDelegate = delegate
         session.historyDelegate = delegate
         session.progressDelegate = delegate
+        prompts = GeckoPrompts(onPrompt)
+        session.promptDelegate = prompts
+        session.permissionDelegate = prompts
     }
 
     public func load(url: URL) {
@@ -123,6 +129,11 @@ final class GeckoTab {
 
     public func stop() {
         session.stop()
+    }
+
+    /// The user's answer to the dialog or permission request `id`.
+    public func answerPrompt(id: Int, accepted: Bool, text: String?) {
+        prompts.answer(id, accepted, text)
     }
 
     public func close() {
@@ -262,6 +273,7 @@ struct GeckoContentComposer : ContentComposer {
         BackHandler(enabled: canGoBack) {
             tab.goBack()
         }
+        GeckoPromptEffects(tab.prompts)
         AndroidView(factory: { ctx in
             let view = GeckoView(ctx)
             tab.attach(to: view)

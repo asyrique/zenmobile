@@ -39,6 +39,13 @@ struct BrowserView: View {
         .sheet(isPresented: $showTabs) {
             TabSwitcherView()
         }
+        .sheet(isPresented: showsPrompt) {
+            if let page = browser.selectedTab?.page, let prompt = page.prompt {
+                PromptView(prompt: prompt, host: page.url.host ?? "This page") { accepted, text in
+                    page.answerPrompt(accepted: accepted, text: text)
+                }
+            }
+        }
         .sheet(isPresented: $showAddressBar) {
             if addressBarEditsTab, let tab = browser.selectedTab {
                 // Starts with the page's address, to edit or replace.
@@ -53,6 +60,18 @@ struct BrowserView: View {
                 }
             }
         }
+    }
+
+    /// Whether the current tab's page is asking something; dismissing the
+    /// sheet answers no.
+    private var showsPrompt: Binding<Bool> {
+        Binding(
+            get: { browser.selectedTab?.page.prompt != nil },
+            set: { shown in
+                if !shown {
+                    browser.selectedTab?.page.answerPrompt(accepted: false)
+                }
+            })
     }
 
     private func openAddressBar(editingTab: Bool) {
@@ -266,6 +285,49 @@ struct SyncPromptCard: View {
         .padding()
         .background(RoundedRectangle(cornerRadius: 20).fill(Color.primary.opacity(0.08)))
         .accessibilityIdentifier("syncPrompt")
+    }
+}
+
+/// A page's JavaScript dialog (alert, confirm, prompt) or permission request.
+struct PromptView: View {
+    let prompt: PagePrompt
+    let host: String
+    let onAnswer: (Bool, String?) -> Void
+    @State var text: String
+
+    init(prompt: PagePrompt, host: String, onAnswer: @escaping (Bool, String?) -> Void) {
+        self.prompt = prompt
+        self.host = host
+        self.onAnswer = onAnswer
+        _text = State(initialValue: prompt.defaultText)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if prompt.kind != .permission {
+                Text("\(host) says").font(.headline)
+            }
+            Text(prompt.message)
+                .accessibilityIdentifier("promptMessage")
+            if prompt.kind == .text {
+                TextField("", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("promptField")
+            }
+            HStack {
+                Spacer()
+                if prompt.kind != .alert {
+                    Button(prompt.kind == .permission ? "Block" : "Cancel") { onAnswer(false, nil) }
+                        .accessibilityIdentifier("promptCancel")
+                }
+                Button(prompt.kind == .permission ? "Allow" : "OK") { onAnswer(true, text) }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("promptOK")
+            }
+            Spacer()
+        }
+        .padding()
+        .presentationDetents([.medium])
     }
 }
 
