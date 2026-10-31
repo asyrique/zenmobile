@@ -124,7 +124,8 @@ class BrowsingTest {
         // Gecko exposes a collapsed <select> as a combo box (a Spinner) named
         // by its label; its text depends on the version.
         findAny(By.clazz("android.widget.Spinner"), By.desc("Fruit"), By.text("Fruit"), By.text("Apple")).click()
-        waitFor(By.res("promptChoice").text("Banana"), 30_000).click()
+        // The option's text is a child of the button carrying the id.
+        waitFor(By.res("promptChoice").hasDescendant(By.text("Banana")), 30_000).click()
         waitFor(By.text("Chose Banana"), 30_000)
 
         // Bookmark the page from the page menu.
