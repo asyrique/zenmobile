@@ -15,6 +15,8 @@ struct BrowserView: View {
     @State var addressBarEditsTab = false
     /// What the address bar starts with: the page's address when editing it.
     @State var addressBarStart = ""
+    /// Where the address bar asked to go, carried out once it has closed.
+    @State var addressBarDestination: (url: URL, isPrivate: Bool)?
     @State var findingInPage = false
 
     var body: some View {
@@ -56,13 +58,12 @@ struct BrowserView: View {
                 }
             }
         }
-        .sheet(isPresented: $showAddressBar) {
+        // Goes where the address bar said once it has closed: a new tab's web
+        // view created under the open keyboard (Android) takes over input,
+        // and later text fields lose the keyboard partway through typing.
+        .sheet(isPresented: $showAddressBar, onDismiss: goToAddress) {
             AddressBarView(text: addressBarStart, allowsPrivate: !addressBarEditsTab) { url, isPrivate in
-                if addressBarEditsTab, let tab = browser.selectedTab {
-                    tab.page.load(url)
-                } else {
-                    browser.open(url, isPrivate: isPrivate)
-                }
+                addressBarDestination = (url, isPrivate)
                 showAddressBar = false
             }
         }
@@ -78,6 +79,16 @@ struct BrowserView: View {
                     browser.selectedTab?.page.answerPrompt(accepted: false)
                 }
             })
+    }
+
+    private func goToAddress() {
+        guard let (url, isPrivate) = addressBarDestination else { return }
+        addressBarDestination = nil
+        if addressBarEditsTab, let tab = browser.selectedTab {
+            tab.page.load(url)
+        } else {
+            browser.open(url, isPrivate: isPrivate)
+        }
     }
 
     private func openAddressBar(editingTab: Bool) {
