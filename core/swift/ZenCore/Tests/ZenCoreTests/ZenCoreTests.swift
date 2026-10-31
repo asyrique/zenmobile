@@ -63,6 +63,21 @@ final class ZenCoreTests: XCTestCase {
         XCTAssertEqual(try places.bookmarksGetAllWithUrl(url: url).count, 1)
     }
 
+    func testLoginsStore() throws {
+        let key = try createKey()
+        let store = try LoginStore(
+            path: tempPath("logins.db"),
+            encdec: createManagedEncdec(keyManager: createStaticKeyManager(key: key)))
+        let entry = LoginEntry(
+            origin: "https://zen-browser.app", httpRealm: nil, formActionOrigin: "https://zen-browser.app",
+            usernameField: "user", passwordField: "pass", password: "hunter2", username: "zen")
+        let login = try store.add(login: entry)
+        let candidates = try store.listCandidatesByOrigin(origins: ["https://zen-browser.app"], domains: [])
+        XCTAssertEqual(candidates.map(\.id), [login.id])
+        XCTAssertEqual(try store.getMany(ids: [login.id]).first?.password, "hunter2")
+        XCTAssertEqual(try store.findLoginToUpdate(look: entry)?.id, login.id)
+    }
+
     func testAccountStateMachineStartsDisconnected() throws {
         let account = FirefoxAccount(config: zenFxaConfig())
         let state = try account.processEvent(

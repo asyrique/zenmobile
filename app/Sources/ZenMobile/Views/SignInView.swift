@@ -44,7 +44,9 @@ struct SignInWebView: View {
 
 struct AccountView: View {
     @Environment(AppModel.self) var app
-    @AppStorage(TrackerBlocking.settingKey) var blockTrackers = true
+    @AppStorage(ContentBlocking.trackersKey) var blockTrackers = true
+    @AppStorage(ContentBlocking.adsKey) var blockAds = false
+    @AppStorage(SearchEngine.settingKey) var searchEngine = SearchEngine.duckDuckGo.rawValue
 
     var body: some View {
         Form {
@@ -64,18 +66,35 @@ struct AccountView: View {
             } header: {
                 Text("Firefox account")
             } footer: {
-                Text("Optional. Signing in syncs your open tabs and Zen Spaces with Zen desktop; everything else works without it.")
+                Text("Optional. Signing in syncs your open tabs, Zen Spaces, history, bookmarks and passwords with Zen desktop and Firefox; everything else works without it.")
+            }
+            Section {
+                NavigationLink("Passwords") { PasswordsView() }
+                    .accessibilityIdentifier("passwordsButton")
+                Picker("Search engine", selection: $searchEngine) {
+                    ForEach(SearchEngine.allCases) { engine in
+                        Text(engine.name).tag(engine.rawValue)
+                    }
+                }
+                .accessibilityIdentifier("searchEnginePicker")
             }
             Section {
                 Toggle("Block trackers", isOn: $blockTrackers)
                     .accessibilityIdentifier("blockTrackersToggle")
                     .onChange(of: blockTrackers) { _, _ in
-                        Task { await TrackerBlocking.apply() }
+                        Task { await ContentBlocking.apply() }
                     }
+                Toggle("Block ads", isOn: $blockAds)
+                    .accessibilityIdentifier("blockAdsToggle")
+                    .onChange(of: blockAds) { _, _ in
+                        Task { await ContentBlocking.apply() }
+                    }
+                NavigationLink("Clear browsing data") { ClearBrowsingDataView() }
+                    .accessibilityIdentifier("clearDataButton")
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("Stops known trackers from following you across websites. Turn off if a site doesn't work.")
+                Text(Self.privacyFooter)
             }
             if let error = app.lastSyncError {
                 Section("Last sync") {
@@ -84,5 +103,56 @@ struct AccountView: View {
             }
         }
         .navigationTitle("Settings")
+    }
+
+    private static var privacyFooter: String {
+        #if os(Android)
+        let ads = "Ad blocking installs uBlock Origin from addons.mozilla.org."
+        #else
+        let ads = "Ad blocking uses EasyList, updated every few days."
+        #endif
+        return "Stops known trackers from following you across websites. \(ads) Turn either off if a site doesn't work."
+    }
+}
+
+/// Settings → Privacy → Clear browsing data.
+struct ClearBrowsingDataView: View {
+    @Environment(Places.self) var places
+    @State var history = true
+    @State var siteData = true
+    @State var cache = true
+    @State var isClearing = false
+    @State var cleared = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("History", isOn: $history)
+                Toggle("Cookies and site data", isOn: $siteData)
+                Toggle("Cached images and files", isOn: $cache)
+            } footer: {
+                Text("Clearing cookies signs you out of most sites. Open tabs, bookmarks, passwords and downloads stay.")
+            }
+            Section {
+                Button("Clear", role: .destructive) {
+                    isClearing = true
+                    Task {
+                        if history {
+                            await places.clearHistory()
+                        }
+                        await BrowsingData.clear(siteData: siteData, cache: cache)
+                        isClearing = false
+                        cleared = true
+                    }
+                }
+                .disabled(isClearing || !(history || siteData || cache))
+                .accessibilityIdentifier("clearDataConfirm")
+                if cleared {
+                    Text("Cleared").foregroundStyle(.secondary)
+                        .accessibilityIdentifier("clearDataDone")
+                }
+            }
+        }
+        .navigationTitle("Clear browsing data")
     }
 }

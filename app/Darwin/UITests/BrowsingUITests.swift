@@ -61,6 +61,21 @@ final class BrowsingUITests: XCTestCase {
         return waitFor(label, timeout: 10)
     }
 
+    /// Types into one of the app's text fields and checks it all arrived:
+    /// XCUITest types far faster than a person, and on a busy CI simulator
+    /// the keyboard can drop keystrokes. Retypes what's missing.
+    private func type(_ text: String, into field: XCUIElement) {
+        for _ in 0..<3 {
+            field.typeText(text)
+            let typed = field.value as? String ?? ""
+            if typed == text {
+                return
+            }
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: typed.count))
+        }
+        XCTAssertEqual(field.value as? String, text, "Typing into \(field) kept dropping keystrokes")
+    }
+
     @discardableResult
     private func waitFor(_ element: XCUIElement, timeout: TimeInterval = 30) -> XCUIElement {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Timed out waiting for \(element)")
@@ -68,6 +83,9 @@ final class BrowsingUITests: XCTestCase {
     }
 
     func testBrowseToAPage() {
+        // Lets debug builds skip the passcode prompt in front of saved
+        // passwords, which a test can't answer.
+        app.launchEnvironment["ZEN_UI_TEST"] = "1"
         app.launch()
 
         waitFor(element("newTabButton"), timeout: 120)
@@ -76,7 +94,7 @@ final class BrowsingUITests: XCTestCase {
         element("newTabButton").tap()
         let field = waitFor(app.textFields["addressField"])
         field.tap()
-        field.typeText(url)
+        type(url, into: field)
         screenshot("address-bar")
         element("addressGo").tap()
 
@@ -119,7 +137,7 @@ final class BrowsingUITests: XCTestCase {
         waitFor(app.buttons["Find in page"]).tap()
         let findField = waitFor(app.textFields["findField"])
         findField.tap()
-        findField.typeText("Zen")
+        type("Zen", into: findField)
         XCTAssertEqual(waitFor(element("findStatus")).label, "Found")
         screenshot("find")
         element("findDone").tap()
@@ -131,7 +149,7 @@ final class BrowsingUITests: XCTestCase {
         waitFor(element("addressClear")).tap()
         let tabField = waitFor(app.textFields["addressField"])
         tabField.tap()
-        tabField.typeText(url + "second.html")
+        type(url + "second.html", into: tabField)
         element("addressGo").tap()
         waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
         Thread.sleep(forTimeInterval: 2)
@@ -161,7 +179,7 @@ final class BrowsingUITests: XCTestCase {
         privateToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
         let privateField = waitFor(app.textFields["addressField"])
         privateField.tap()
-        privateField.typeText(url)
+        type(url, into: privateField)
         element("addressGo").tap()
         waitFor(app.webViews.staticTexts[heading], timeout: 60)
         element("tabsButton").tap()
@@ -173,11 +191,56 @@ final class BrowsingUITests: XCTestCase {
         waitFor(element("newTabButton")).tap()
         let suggestField = waitFor(app.textFields["addressField"])
         suggestField.tap()
-        suggestField.typeText("Zen")
+        type("Zen", into: suggestField)
         let suggestion = waitFor(app.buttons.matching(identifier: "suggestion").firstMatch, timeout: 30)
         screenshot("suggestions")
         suggestion.tap()
         waitFor(app.webViews.staticTexts[heading], timeout: 60)
+
+        // A sign-in offers to save the password; it's listed in Settings →
+        // Passwords and fills the form next time.
+        element("addressPill").tap()
+        waitFor(element("addressClear")).tap()
+        let loginField = waitFor(app.textFields["addressField"])
+        loginField.tap()
+        type(url + "login.html", into: loginField)
+        element("addressGo").tap()
+        let username = waitFor(app.webViews.textFields["Username"], timeout: 60)
+        username.tap()
+        username.typeText("zen-tester")
+        let password = waitFor(app.webViews.secureTextFields["Password"])
+        password.tap()
+        password.typeText("hunter2")
+        app.webViews.buttons["Sign in"].tap()
+        XCTAssertTrue(waitFor(element("promptMessage")).label.contains("zen-tester"))
+        screenshot("save-password")
+        element("promptOK").tap()
+        waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
+        element("tabsButton").tap()
+        waitFor(element("settingsButton")).tap()
+        waitFor(element("passwordsButton")).tap()
+        waitFor(app.buttons.matching(identifier: "savedLogin").firstMatch).tap()
+        XCTAssertEqual(waitFor(element("savedUsername")).label, "zen-tester")
+        waitFor(element("showPassword")).tap()
+        XCTAssertEqual(element("savedPassword").label, "hunter2")
+        screenshot("saved-password")
+        for _ in 0..<3 {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+        waitFor(element("tabsDone")).tap()
+
+        // The form fills when loaded afresh (going back could restore the typed values).
+        element("addressPill").tap()
+        waitFor(element("addressClear")).tap()
+        let againField = waitFor(app.textFields["addressField"])
+        againField.tap()
+        type(url + "login.html", into: againField)
+        element("addressGo").tap()
+        let filled = NSPredicate(format: "value == %@", "zen-tester")
+        let refilled = app.webViews.textFields["Username"]
+        expectation(for: filled, evaluatedWith: refilled)
+        waitForExpectations(timeout: 30)
+        screenshot("filled-password")
 
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))

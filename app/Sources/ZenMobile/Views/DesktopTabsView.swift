@@ -24,6 +24,7 @@ struct DesktopTabsView: View {
                 Section(device.clientName) {
                     ForEach(sortedTabs(device), id: \.self) { tab in
                         if let urlString = tab.urlHistory.first, let url = URL(string: urlString) {
+                            HStack {
                             Button { open(url, tab.title) } label: {
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
@@ -37,6 +38,18 @@ struct DesktopTabsView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            Spacer()
+                            // Close it on that device.
+                            Button {
+                                Task {
+                                    _ = await app.closeRemoteTab(urlString, onDeviceNamed: device.clientName, id: device.clientId)
+                                }
+                            } label: {
+                                Image(systemName: "xmark").frame(width: 32, height: 32)
+                            }
+                            .accessibilityLabel(Text("Close on \(device.clientName)"))
+                            }
+                            .buttonStyle(.borderless)
                         }
                     }
                 }

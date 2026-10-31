@@ -257,6 +257,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
+name = "db-crypto"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=723ccb82acf461404d8243a3ad231d7c6fa9d2f3#723ccb82acf461404d8243a3ad231d7c6fa9d2f3"
+dependencies = [
+ "anyhow",
+ "error-support",
+ "jwcrypto",
+ "nss-as",
+ "parking_lot",
+ "serde_json",
+ "thiserror 2.0.21",
+ "uniffi",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -955,6 +970,32 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
+name = "logins"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=723ccb82acf461404d8243a3ad231d7c6fa9d2f3#723ccb82acf461404d8243a3ad231d7c6fa9d2f3"
+dependencies = [
+ "anyhow",
+ "db-crypto",
+ "error-support",
+ "interrupt-support",
+ "jwcrypto",
+ "lazy_static",
+ "nss-as",
+ "parking_lot",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "thiserror 2.0.21",
+ "types",
+ "uniffi",
+ "url",
+]
 
 [[package]]
 name = "memchr"
@@ -2334,10 +2375,12 @@ name = "zen-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "db-crypto",
  "error-support",
  "fxa-client",
  "init_rust_components",
  "interrupt-support",
+ "logins",
  "parking_lot",
  "places",
  "rust-log-forwarder",

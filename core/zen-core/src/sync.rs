@@ -168,6 +168,11 @@ impl ZenSyncManager {
                 engines.push(engine);
             }
         }
+        // Saved passwords, once the app has opened its LoginStore and called
+        // registerWithSyncManager().
+        if let Some(engine) = logins::get_registered_sync_engine(&SyncEngineId::Passwords) {
+            engines.push(engine);
+        }
         engines
     }
 
@@ -344,28 +349,47 @@ mod tests {
         );
         assert_eq!(
             processor
-                .apply_incoming_command(Command::Wipe("passwords".into()))
+                .apply_incoming_command(Command::Wipe("addresses".into()))
                 .unwrap(),
             CommandStatus::Unsupported
         );
     }
 
+    // One test for both: registration is process-wide, so separate tests
+    // running in parallel would see each other's engines.
     #[test]
-    fn places_engines_join_once_registered() {
+    fn places_and_logins_engines_join_once_registered() {
         let manager = ZenSyncManager::new(
-            Arc::new(TabsStore::new_with_mem_path("places_engines_join_once_registered")),
+            Arc::new(TabsStore::new_with_mem_path("engines_join_once_registered")),
             ZenSpacesStore::new_in_memory(),
         );
-        let path = std::env::temp_dir().join(format!("zen-places-{}.sqlite", std::process::id()));
-        let api = places::PlacesApi::new(&path).unwrap();
+        let names = || -> Vec<String> {
+            manager
+                .engines()
+                .iter()
+                .map(|e| e.collection_name().to_string())
+                .collect()
+        };
+        assert_eq!(names(), ["tabs", "spaces"]);
+
+        let dir = std::env::temp_dir();
+        let places_path = dir.join(format!("zen-places-{}.sqlite", std::process::id()));
+        let api = places::PlacesApi::new(&places_path).unwrap();
         api.clone().register_with_sync_manager();
-        let names: Vec<String> = manager
-            .engines()
-            .iter()
-            .map(|e| e.collection_name().to_string())
-            .collect();
-        assert_eq!(names, ["tabs", "spaces", "history", "bookmarks"]);
+
+        let logins_path = dir.join(format!("zen-logins-{}.sqlite", std::process::id()));
+        crate::zen_initialize(); // NSS, for the logins key
+        let key = db_crypto::create_key().unwrap();
+        let store = logins::create_login_store_with_static_key_manager(
+            logins_path.to_string_lossy().into_owned(),
+            key,
+        );
+        store.clone().register_with_sync_manager();
+
+        assert_eq!(names(), ["tabs", "spaces", "history", "bookmarks", "passwords"]);
         drop(api);
-        let _ = std::fs::remove_file(&path);
+        drop(store);
+        let _ = std::fs::remove_file(&places_path);
+        let _ = std::fs::remove_file(&logins_path);
     }
 }

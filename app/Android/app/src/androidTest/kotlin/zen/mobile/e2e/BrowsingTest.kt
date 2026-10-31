@@ -6,10 +6,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.io.File
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestWatcher
@@ -67,6 +69,36 @@ class BrowsingTest {
         return waitFor(By.text(text), 10_000)
     }
 
+    /**
+     * Taps what [selector] finds, finding it again if the screen re-renders
+     * in between (lists that fill in asynchronously replace their rows).
+     */
+    private fun tap(selector: BySelector, timeoutMs: Long = 30_000) {
+        repeat(3) {
+            try {
+                waitFor(selector, timeoutMs).click()
+                return
+            } catch (e: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        waitFor(selector, timeoutMs).click()
+    }
+
+    /** The first of [selectors] to appear; on failure, saves the screen's hierarchy. */
+    private fun findAny(vararg selectors: BySelector, timeoutMs: Long = 30_000): UiObject2 {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            for (selector in selectors) {
+                device.findObject(selector)?.let { return it }
+            }
+            Thread.sleep(500)
+        }
+        // Saved with the screenshots, which CI uploads.
+        File(screenshots, "hierarchy.xml").outputStream().use { device.dumpWindowHierarchy(it) }
+        throw AssertionError("Timed out after ${timeoutMs}ms waiting for any of ${selectors.toList()}")
+    }
+
     private fun waitFor(selector: BySelector, timeoutMs: Long = 30_000): UiObject2 =
         device.wait(Until.findObject(selector), timeoutMs)
             ?: throw AssertionError("Timed out after ${timeoutMs}ms waiting for $selector")
@@ -105,6 +137,14 @@ class BrowsingTest {
         waitFor(By.res("promptOK")).click()
         waitFor(By.text("Confirmed"), 30_000)
 
+        // A <select> menu opens the app's list; the choice reaches the page.
+        // Gecko exposes a collapsed <select> as a combo box (a Spinner) named
+        // by its label; its text depends on the version.
+        findAny(By.clazz("android.widget.Spinner"), By.desc("Fruit"), By.text("Fruit"), By.text("Apple")).click()
+        // The option's text is a child of the button carrying the id.
+        waitFor(By.res("promptChoice").hasDescendant(By.text("Banana")), 30_000).click()
+        waitFor(By.text("Chose Banana"), 30_000)
+
         // Bookmark the page from the page menu.
         waitFor(By.res("pageMenu")).click()
         waitFor(By.text("Add bookmark")).click()
@@ -123,7 +163,7 @@ class BrowsingTest {
         screenshot("downloads")
         device.pressBack()
         waitFor(By.res("bookmarksButton")).click()
-        waitFor(By.text("Mobile Bookmarks")).click()
+        tap(By.text("Mobile Bookmarks"))
         waitFor(By.res("bookmarkTitle").text(title), 30_000)
         screenshot("bookmarks")
         // Bookmarks folder, Bookmarks, Library, then the tab switcher.
@@ -202,6 +242,45 @@ class BrowsingTest {
         suggestion.click()
         device.wait(Until.gone(By.res("addressField")), 10_000)
         Thread.sleep(5_000)
+
+        // A sign-in offers to save the password (Gecko's login manager finds
+        // the form), and it's listed in Settings → Passwords. Gecko doesn't
+        // fill saved passwords into http pages, so filling isn't checked here.
+        waitFor(By.res("addressPill")).click()
+        waitFor(By.res("addressClear")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text ${url}login.html")
+        waitFor(By.res("addressGo").enabled(true), 10_000).click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        waitFor(By.text("Sign in"), 60_000)
+        Thread.sleep(3_000)
+        val fields = device.wait(Until.findObjects(By.clazz("android.widget.EditText")), 30_000)
+        assertTrue("No sign-in fields", fields != null && fields.size >= 2)
+        fields!![0].click()
+        device.waitForIdle()
+        device.executeShellCommand("input text zen-tester")
+        fields[1].click()
+        device.waitForIdle()
+        device.executeShellCommand("input text hunter2")
+        device.pressEnter()
+        val saveMessage = waitFor(By.res("promptMessage"), 60_000)
+        assertTrue(saveMessage.text.contains("zen-tester"))
+        screenshot("save-password")
+        waitFor(By.res("promptOK")).click()
+        Thread.sleep(3_000)
+        waitFor(By.res("tabsButton")).click()
+        device.waitForIdle()
+        Thread.sleep(1_000)
+        waitFor(By.res("settingsButton")).click()
+        waitFor(By.res("passwordsButton")).click()
+        waitFor(By.res("savedLogin"), 30_000).click()
+        waitFor(By.res("savedUsername").text("zen-tester"), 30_000)
+        waitFor(By.res("showPassword")).click()
+        waitFor(By.res("savedPassword").text("hunter2"), 10_000)
+        screenshot("saved-password")
+        // The saved login, Passwords, Settings, then the tab switcher.
+        repeat(4) { device.pressBack() }
 
         waitFor(By.res("spacesButton")).click()
         waitFor(By.res("spacesEmptyState"))
