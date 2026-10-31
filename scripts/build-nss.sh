@@ -15,7 +15,7 @@ set -euo pipefail
 
 PLATFORM="${1:?usage: build-nss.sh <desktop|ios|android>}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-REV="$(sed -n 's/^fxa-client = .*rev = "\([0-9a-f]*\)".*/\1/p' "$ROOT/core/Cargo.toml")"
+REV="$("$ROOT/scripts/app-services-rev.sh")"
 AS="$ROOT/.build-deps/application-services"
 
 if [[ ! -d "$AS/.git" ]]; then
