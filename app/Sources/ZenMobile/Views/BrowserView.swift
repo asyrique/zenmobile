@@ -13,9 +13,8 @@ struct BrowserView: View {
     /// Whether the address bar loads into the current tab (tapped its
     /// address) rather than opening a new one.
     @State var addressBarEditsTab = false
-    /// The address bar's text, kept here rather than in the sheet so
-    /// re-creating the sheet's view (Skip on Android does) can't reset it.
-    @State var addressText = ""
+    /// What the address bar starts with: the page's address when editing it.
+    @State var addressBarStart = ""
     @State var findingInPage = false
 
     var body: some View {
@@ -58,7 +57,7 @@ struct BrowserView: View {
             }
         }
         .sheet(isPresented: $showAddressBar) {
-            AddressBarView(text: $addressText, allowsPrivate: !addressBarEditsTab) { url, isPrivate in
+            AddressBarView(text: addressBarStart, allowsPrivate: !addressBarEditsTab) { url, isPrivate in
                 if addressBarEditsTab, let tab = browser.selectedTab {
                     tab.page.load(url)
                 } else {
@@ -84,7 +83,7 @@ struct BrowserView: View {
     private func openAddressBar(editingTab: Bool) {
         addressBarEditsTab = editingTab
         // Editing starts with the page's address, to change or replace.
-        addressText = editingTab ? (browser.selectedTab?.url.absoluteString ?? "") : ""
+        addressBarStart = editingTab ? (browser.selectedTab?.url.absoluteString ?? "") : ""
         showAddressBar = true
     }
 
@@ -414,13 +413,13 @@ struct AddressBarView: View {
     /// Whether to offer opening the page in a private tab.
     let allowsPrivate: Bool
     let onSubmit: (URL, Bool) -> Void
-    @Binding var text: String
+    @State var text: String
     @State var isPrivate = false
     /// Pages from history and bookmarks matching the text.
     @State var suggestions: [Places.Suggestion] = []
 
-    init(text: Binding<String>, allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
-        _text = text
+    init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
+        _text = State(initialValue: text)
         self.allowsPrivate = allowsPrivate
         self.onSubmit = onSubmit
     }
@@ -467,7 +466,13 @@ struct AddressBarView: View {
         .padding()
         // Full height, so suggestions show above the keyboard.
         .presentationDetents([.large])
-        .task(id: text) { suggestions = await places.suggestions(for: text) }
+        // Once typing pauses: updating the list on every keystroke can make
+        // Android's text field lose the keyboard partway through typing.
+        .task(id: text) {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            suggestions = await places.suggestions(for: text)
+        }
     }
 
     private func submit() {
