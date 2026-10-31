@@ -7,6 +7,7 @@ struct TabSwitcherView: View {
     @Environment(BrowserModel.self) var browser
     @Environment(\.dismiss) var dismiss
     @State var showDesktopTabs = false
+    @State var scrollTarget: UUID?
 
     var body: some View {
         NavigationStack {
@@ -25,10 +26,13 @@ struct TabSwitcherView: View {
                             }
                             .padding(24)
                         }
-                        // Open on the current tab.
-                        .onAppear {
-                            if let selected = browser.selectedTabId {
-                                proxy.scrollTo(selected, anchor: .center)
+                        // Open on the current tab. Scrolls one update after
+                        // appearing: on Android the proxy can only scroll once
+                        // the row has been laid out.
+                        .onAppear { scrollTarget = browser.selectedTabId }
+                        .onChange(of: scrollTarget) { _, target in
+                            if let target {
+                                proxy.scrollTo(target, anchor: .center)
                             }
                         }
                     }

@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -55,6 +56,15 @@ class BrowsingTest {
         step += 1
         device.waitForIdle()
         device.takeScreenshot(File(screenshots, "%02d-%s.png".format(step, name)))
+    }
+
+    /** Finds a tab card's text, scrolling the tab switcher's row if needed. */
+    private fun findInTabs(text: String): UiObject2 {
+        repeat(4) {
+            device.wait(Until.findObject(By.text(text)), 3_000)?.let { return it }
+            device.findObject(By.scrollable(true))?.scroll(Direction.RIGHT, 1f)
+        }
+        return waitFor(By.text(text), 10_000)
     }
 
     private fun waitFor(selector: BySelector, timeoutMs: Long = 30_000): UiObject2 =
@@ -152,7 +162,7 @@ class BrowsingTest {
         device.wait(Until.gone(By.res("addressField")), 10_000)
         Thread.sleep(5_000)
         waitFor(By.res("tabsButton")).click()
-        waitFor(By.text("Private"), 30_000)
+        findInTabs("Private")
         screenshot("private-tab")
         device.pressBack()
 
