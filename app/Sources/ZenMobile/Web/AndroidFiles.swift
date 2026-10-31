@@ -1,3 +1,5 @@
+import Foundation
+
 #if SKIP
 // Kotlin side (transpiled by Skip): file helpers Swift calls on Android,
 // implemented in GeckoDownloads.kt. Public so Kotlin doesn't rename them on
