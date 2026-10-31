@@ -68,6 +68,9 @@ final class BrowsingUITests: XCTestCase {
     }
 
     func testBrowseToAPage() {
+        // Lets debug builds skip the passcode prompt in front of saved
+        // passwords, which a test can't answer.
+        app.launchEnvironment["ZEN_UI_TEST"] = "1"
         app.launch()
 
         waitFor(element("newTabButton"), timeout: 120)

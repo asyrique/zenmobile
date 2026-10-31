@@ -58,6 +58,13 @@ struct PasswordsView: View {
     /// Asks for Face ID, Touch ID or the passcode; a device with no passcode
     /// has nothing to ask for.
     private static func authenticate() async -> Bool {
+        #if DEBUG
+        // The UI tests can't type a passcode into the system prompt. Debug
+        // builds only; release builds always ask.
+        if ProcessInfo.processInfo.environment["ZEN_UI_TEST"] == "1" {
+            return true
+        }
+        #endif
         let context = LAContext()
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
             return true
