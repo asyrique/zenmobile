@@ -24,6 +24,9 @@ struct PagePrompt: Identifiable {
         case choice
         /// Save (or update) the password just submitted: Save or Not now.
         case saveLogin
+        /// HTTP authentication: a username (starting as the default text)
+        /// and a password. The answer's text is "username\npassword".
+        case auth
     }
 
     let id: Int
@@ -462,6 +465,24 @@ struct FindResult: Equatable {
                 continuation.resume(returning: (accepted, text))
             }
         }
+    }
+
+    // HTTP authentication (Basic, Digest): ask for a username and password.
+    func webView(_ webView: WKWebView, respondTo challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        let method = challenge.protectionSpace.authenticationMethod
+        guard method == NSURLAuthenticationMethodHTTPBasic || method == NSURLAuthenticationMethodHTTPDigest else {
+            return (.performDefaultHandling, nil)
+        }
+        let host = challenge.protectionSpace.host
+        let message = challenge.previousFailureCount > 0 ? "That didn't work. Sign in to \(host) again." : "\(host) asks you to sign in."
+        let answer = await ask(.auth, message, defaultText: challenge.proposedCredential?.user ?? "")
+        guard answer.accepted, let text = answer.text else {
+            return (.cancelAuthenticationChallenge, nil)
+        }
+        let parts = text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        let user = parts.first.map(String.init) ?? ""
+        let password = parts.count > 1 ? String(parts[1]) : ""
+        return (.useCredential, URLCredential(user: user, password: password, persistence: .forSession))
     }
 
     // A target=_blank link or window.open: open it as a new tab instead.

@@ -437,6 +437,7 @@ struct PromptView: View {
     let host: String
     let onAnswer: (Bool, String?) -> Void
     @State var text: String
+    @State var password = ""
 
     init(prompt: PagePrompt, host: String, onAnswer: @escaping (Bool, String?) -> Void) {
         self.prompt = prompt
@@ -460,6 +461,15 @@ struct PromptView: View {
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("promptField")
             }
+            if prompt.kind == .auth {
+                TextField("Username", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("authUsername")
+                SecureField("Password", text: $password)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("authPassword")
+            }
             if prompt.kind == .choice {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -481,7 +491,7 @@ struct PromptView: View {
                         .accessibilityIdentifier("promptCancel")
                 }
                 if prompt.kind != .choice {
-                    Button(okTitle) { onAnswer(true, text) }
+                    Button(okTitle) { onAnswer(true, prompt.kind == .auth ? text + "\n" + password : text) }
                         .buttonStyle(.borderedProminent)
                         .accessibilityIdentifier("promptOK")
                 }
@@ -504,6 +514,7 @@ struct PromptView: View {
         switch prompt.kind {
         case .permission: return "Allow"
         case .saveLogin: return "Save"
+        case .auth: return "Sign in"
         default: return "OK"
         }
     }

@@ -106,6 +106,11 @@ class BrowsingTest {
         waitFor(By.res("promptOK")).click()
         waitFor(By.text("Confirmed"), 30_000)
 
+        // A <select> menu opens the app's list; the choice reaches the page.
+        waitFor(By.text("Apple"), 30_000).click()
+        waitFor(By.res("promptChoice").text("Banana"), 30_000).click()
+        waitFor(By.text("Chose Banana"), 30_000)
+
         // Bookmark the page from the page menu.
         waitFor(By.res("pageMenu")).click()
         waitFor(By.text("Add bookmark")).click()
