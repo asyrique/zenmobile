@@ -13,6 +13,11 @@ struct BrowserView: View {
     /// Whether the address bar loads into the current tab (tapped its
     /// address) rather than opening a new one.
     @State var addressBarEditsTab = false
+    /// What the address bar starts with: the page's address when editing it.
+    @State var addressBarStart = ""
+    /// Where the address bar asked to go, carried out once it has closed.
+    @State var addressBarDestination: (url: URL, isPrivate: Bool)?
+    @State var findingInPage = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -20,7 +25,14 @@ struct BrowserView: View {
                 .ignoresSafeArea(edges: .top)
             VStack(spacing: 0) {
                 if let tab = browser.selectedTab {
-                    NavigationBar(page: tab.page, onAddress: { openAddressBar(editingTab: true) })
+                    if findingInPage {
+                        FindBar(page: tab.page, onDone: { findingInPage = false })
+                    } else {
+                        NavigationBar(
+                            page: tab.page,
+                            onAddress: { openAddressBar(editingTab: true) },
+                            onFind: { findingInPage = true })
+                    }
                 }
                 BottomBar(
                     tabCount: browser.tabs.count,
@@ -39,27 +51,50 @@ struct BrowserView: View {
         .sheet(isPresented: $showTabs) {
             TabSwitcherView()
         }
-        .sheet(isPresented: $showAddressBar) {
-            AddressBarView(placeholder: addressBarPlaceholder) { url in
-                if addressBarEditsTab, let tab = browser.selectedTab {
-                    tab.page.load(url)
-                } else {
-                    browser.open(url)
+        .sheet(isPresented: showsPrompt) {
+            if let page = browser.selectedTab?.page, let prompt = page.prompt {
+                PromptView(prompt: prompt, host: page.url.host ?? "This page") { accepted, text in
+                    page.answerPrompt(accepted: accepted, text: text)
                 }
+            }
+        }
+        // Goes where the address bar said once it has closed: a new tab's web
+        // view created under the open keyboard (Android) takes over input,
+        // and later text fields lose the keyboard partway through typing.
+        .sheet(isPresented: $showAddressBar, onDismiss: goToAddress) {
+            AddressBarView(text: addressBarStart, allowsPrivate: !addressBarEditsTab) { url, isPrivate in
+                addressBarDestination = (url, isPrivate)
                 showAddressBar = false
             }
         }
     }
 
-    private var addressBarPlaceholder: String {
+    /// Whether the current tab's page is asking something; dismissing the
+    /// sheet answers no.
+    private var showsPrompt: Binding<Bool> {
+        Binding(
+            get: { browser.selectedTab?.page.prompt != nil },
+            set: { shown in
+                if !shown {
+                    browser.selectedTab?.page.answerPrompt(accepted: false)
+                }
+            })
+    }
+
+    private func goToAddress() {
+        guard let (url, isPrivate) = addressBarDestination else { return }
+        addressBarDestination = nil
         if addressBarEditsTab, let tab = browser.selectedTab {
-            return tab.url.absoluteString
+            tab.page.load(url)
+        } else {
+            browser.open(url, isPrivate: isPrivate)
         }
-        return "Search or enter address"
     }
 
     private func openAddressBar(editingTab: Bool) {
         addressBarEditsTab = editingTab
+        // Editing starts with the page's address, to change or replace.
+        addressBarStart = editingTab ? (browser.selectedTab?.url.absoluteString ?? "") : ""
         showAddressBar = true
     }
 
@@ -76,45 +111,150 @@ struct BrowserView: View {
     }
 }
 
-/// Back, forward, the page's address (tap to go somewhere else in this tab)
-/// and reload.
+/// Back, forward, the page's address (tap to go somewhere else in this tab),
+/// reload or stop, and share; with the load's progress along the top.
 struct NavigationBar: View {
+    @Environment(Places.self) var places
     let page: WebPage
     let onAddress: () -> Void
+    let onFind: () -> Void
+    @State var isBookmarked = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button { page.goBack() } label: {
-                Image(systemName: "chevron.left").frame(width: 40, height: 36)
+        VStack(spacing: 0) {
+            if page.isLoading {
+                ProgressView(value: page.progress)
+                    .progressViewStyle(.linear)
+                    .accessibilityIdentifier("pageProgress")
             }
-            .disabled(!page.canGoBack)
-            .accessibilityLabel(Text("Back"))
-            .accessibilityIdentifier("backButton")
-            Button { page.goForward() } label: {
-                Image(systemName: "chevron.right").frame(width: 40, height: 36)
-            }
-            .disabled(!page.canGoForward)
-            .accessibilityLabel(Text("Forward"))
-            .accessibilityIdentifier("forwardButton")
-            Button(action: onAddress) {
-                Text(page.url.host ?? page.url.absoluteString)
-                    .font(.footnote)
-                    .lineLimit(1)
+            HStack(spacing: 8) {
+                Button { page.goBack() } label: {
+                    Image(systemName: "chevron.left").frame(width: 36, height: 36)
+                }
+                .disabled(!page.canGoBack)
+                .accessibilityLabel(Text("Back"))
+                .accessibilityIdentifier("backButton")
+                Button { page.goForward() } label: {
+                    Image(systemName: "chevron.right").frame(width: 36, height: 36)
+                }
+                .disabled(!page.canGoForward)
+                .accessibilityLabel(Text("Forward"))
+                .accessibilityIdentifier("forwardButton")
+                Button(action: onAddress) {
+                    HStack(spacing: 6) {
+                        if page.isPrivate {
+                            ZenSymbolImage(symbol: .privateTab, size: 14).font(.caption)
+                        }
+                        // A padlock for pages that came entirely over HTTPS.
+                        Image(systemName: page.isSecure ? "lock" : "info.circle")
+                            .font(.caption)
+                            .accessibilityLabel(Text(page.isSecure ? "Secure connection" : "Connection not secure"))
+                            .accessibilityIdentifier("securityIndicator")
+                        Text(page.url.host ?? page.url.absoluteString)
+                            .font(.footnote)
+                            .lineLimit(1)
+                    }
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
                     .background(Capsule().fill(Color.primary.opacity(0.1)))
+                }
+                .accessibilityLabel(Text("Address"))
+                .accessibilityIdentifier("addressPill")
+                if page.isLoading {
+                    Button { page.stop() } label: {
+                        Image(systemName: "xmark").frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel(Text("Stop"))
+                    .accessibilityIdentifier("stopButton")
+                } else {
+                    Button { page.reload() } label: {
+                        Image(systemName: "arrow.clockwise.circle").frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel(Text("Reload"))
+                    .accessibilityIdentifier("reloadButton")
+                }
+                ShareLink(item: page.url) {
+                    Image(systemName: "square.and.arrow.up").frame(width: 36, height: 36)
+                }
+                .accessibilityLabel(Text("Share"))
+                .accessibilityIdentifier("shareButton")
+                Menu {
+                    Button(isBookmarked ? "Remove bookmark" : "Add bookmark") {
+                        let (url, title) = (page.url, page.title)
+                        Task { isBookmarked = await places.toggleBookmark(url, title: title) }
+                    }
+                    Button("Find in page", action: onFind)
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: 36, height: 36)
+                }
+                .accessibilityLabel(Text("More"))
+                .accessibilityIdentifier("pageMenu")
             }
-            .accessibilityLabel(Text("Address"))
-            .accessibilityIdentifier("addressPill")
-            Button { page.reload() } label: {
-                Image(systemName: "arrow.clockwise.circle").frame(width: 40, height: 36)
-            }
-            .accessibilityLabel(Text("Reload"))
-            .accessibilityIdentifier("reloadButton")
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
         }
         .foregroundStyle(Color.primary)
-        .padding(.horizontal, 16)
+        .task(id: page.url) { isBookmarked = await places.isBookmarked(page.url) }
+    }
+}
+
+/// Find in page: the text to find, where the match is, previous and next.
+struct FindBar: View {
+    let page: WebPage
+    let onDone: () -> Void
+    @State var text = ""
+    @FocusState var fieldFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Find in page", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .onSubmit { page.find(text) }
+                .focused($fieldFocused)
+                .accessibilityIdentifier("findField")
+            if let status {
+                Text(status)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("findStatus")
+            }
+            Button { page.find(text, backwards: true) } label: {
+                Image(systemName: "chevron.up").frame(width: 36, height: 36)
+            }
+            .disabled(text.isEmpty)
+            .accessibilityLabel(Text("Previous match"))
+            Button { page.find(text) } label: {
+                Image(systemName: "chevron.down").frame(width: 36, height: 36)
+            }
+            .disabled(text.isEmpty)
+            .accessibilityLabel(Text("Next match"))
+            Button("Done") {
+                // Let go of the keyboard before the bar goes away: removed
+                // while focused, on Android the next text field loses the
+                // keyboard partway through typing.
+                fieldFocused = false
+                page.endFind()
+                onDone()
+            }
+            .accessibilityIdentifier("findDone")
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 12)
         .padding(.top, 8)
+        .onChange(of: text) { _, newText in
+            page.find(newText)
+        }
+    }
+
+    /// "2 of 5" where the engine counts matches (Gecko), otherwise whether
+    /// there's one (WebKit).
+    private var status: String? {
+        guard let result = page.findResult else { return nil }
+        if !result.found {
+            return "Not found"
+        }
+        return result.total > 0 ? "\(result.current) of \(result.total)" : "Found"
     }
 }
 
@@ -242,33 +382,134 @@ struct SyncPromptCard: View {
     }
 }
 
-struct AddressBarView: View {
-    let placeholder: String
-    let onSubmit: (URL) -> Void
-    @State var text = ""
+/// A page's JavaScript dialog (alert, confirm, prompt) or permission request.
+struct PromptView: View {
+    let prompt: PagePrompt
+    let host: String
+    let onAnswer: (Bool, String?) -> Void
+    @State var text: String
+
+    init(prompt: PagePrompt, host: String, onAnswer: @escaping (Bool, String?) -> Void) {
+        self.prompt = prompt
+        self.host = host
+        self.onAnswer = onAnswer
+        _text = State(initialValue: prompt.defaultText)
+    }
 
     var body: some View {
-        VStack {
+        VStack(alignment: .leading, spacing: 16) {
+            if prompt.kind != .permission {
+                Text("\(host) says").font(.headline)
+            }
+            Text(prompt.message)
+                .accessibilityIdentifier("promptMessage")
+            if prompt.kind == .text {
+                TextField("", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("promptField")
+            }
             HStack {
-                TextField(placeholder, text: $text)
+                Spacer()
+                if prompt.kind != .alert {
+                    Button(prompt.kind == .permission ? "Block" : "Cancel") { onAnswer(false, nil) }
+                        .accessibilityIdentifier("promptCancel")
+                }
+                Button(prompt.kind == .permission ? "Allow" : "OK") { onAnswer(true, text) }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("promptOK")
+            }
+            Spacer()
+        }
+        .padding()
+        .presentationDetents([.medium])
+    }
+}
+
+struct AddressBarView: View {
+    /// Whether to offer opening the page in a private tab.
+    let allowsPrivate: Bool
+    let onSubmit: (URL, Bool) -> Void
+    @State var text: String
+    @State var isPrivate = false
+
+    init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
+        _text = State(initialValue: text)
+        self.allowsPrivate = allowsPrivate
+        self.onSubmit = onSubmit
+    }
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            HStack {
+                TextField("Search or enter address", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .onSubmit(submit)
                     .accessibilityIdentifier("addressField")
+                if !text.isEmpty {
+                    Button { text = "" } label: {
+                        Image(systemName: "xmark").frame(width: 32, height: 32)
+                    }
+                    .accessibilityLabel(Text("Clear"))
+                    .accessibilityIdentifier("addressClear")
+                }
                 Button("Go", action: submit)
                     .buttonStyle(.borderedProminent)
                     .disabled(text.isEmpty)
                     .accessibilityIdentifier("addressGo")
             }
-            .padding()
+            if allowsPrivate {
+                Toggle("Private tab", isOn: $isPrivate)
+                    .accessibilityIdentifier("privateToggle")
+            }
+            SuggestionsView(text: text) { url in onSubmit(url, isPrivate) }
             Spacer()
         }
-        .presentationDetents([.medium])
+        .padding()
+        // Full height, so suggestions show above the keyboard.
+        .presentationDetents([.large])
     }
 
     private func submit() {
         if let url = BrowserModel.url(forInput: text) {
-            onSubmit(url)
+            onSubmit(url, isPrivate)
+        }
+    }
+}
+
+/// Pages from history and bookmarks matching the address bar's text.
+///
+/// A view of its own, owning its results: when they arrive, only this list
+/// re-renders. Re-rendering the view that holds the text field while typing
+/// (results land between keystrokes) makes Android's text field drop the
+/// keyboard and the rest of what's typed.
+struct SuggestionsView: View {
+    @Environment(Places.self) var places
+    let text: String
+    let onSelect: (URL) -> Void
+    @State var suggestions: [Places.Suggestion] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(suggestions) { suggestion in
+                Button { onSelect(suggestion.url) } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(suggestion.title).lineLimit(1)
+                        Text(suggestion.url.absoluteString)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityIdentifier("suggestion")
+            }
+        }
+        // Once typing pauses, as autocomplete usually does.
+        .task(id: text) {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            suggestions = await places.suggestions(for: text)
         }
     }
 }

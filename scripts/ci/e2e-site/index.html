@@ -16,6 +16,13 @@
   <main>
     <h1>Hello from Zen</h1>
     <p>If you can read this, the browser loaded the end-to-end test page.</p>
+    <!-- The tests tap this, accept the dialog, and check the answer appears. -->
+    <p><button style="font-size: 1.5rem" onclick="document.getElementById('answer').textContent = confirm('Continue with the test?') ? 'Confirmed' : 'Cancelled'">Ask to confirm</button></p>
+    <p id="answer"></p>
+    <!-- The tests tap this and check the file is in Downloads. -->
+    <p><a href="zen-e2e.bin" download style="color: white; font-size: 1.5rem">Download a file</a></p>
+    <!-- The tests tap this to check a new window opens as a new tab. -->
+    <p><a href="second.html" target="_blank" style="color: white; font-size: 1.5rem">Open in a new tab</a></p>
   </main>
 </body>
 </html>

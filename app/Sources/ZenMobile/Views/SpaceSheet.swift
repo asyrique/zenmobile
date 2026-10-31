@@ -116,7 +116,7 @@ struct SpaceSheet: View {
             case let .split(split):
                 Button { if let first = split.tabs.first { openTab(first) } } label: {
                     HStack(spacing: 14) {
-                        Image(systemName: "rectangle.split.2x1").frame(width: 28)
+                        ZenSymbolImage(symbol: .split).frame(width: 28)
                         Text(split.tabs.map(\.title).joined(separator: " | "))
                             .font(.title3).lineLimit(1)
                         Spacer()
@@ -164,7 +164,7 @@ struct SpacesEmptyState: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "square.stack.3d.up")
+            ZenSymbolImage(symbol: .spaces, size: 40)
                 .font(.largeTitle)
             if signedIn {
                 Text("No Spaces yet")

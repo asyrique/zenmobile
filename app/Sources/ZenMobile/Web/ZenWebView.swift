@@ -54,29 +54,61 @@ struct WebKitView: UIViewRepresentable {
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.viewinterop.AndroidView
 import org.mozilla.geckoview.AllowOrDeny
+import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 
-private final class ZenGeckoRuntime {
+final class ZenGeckoRuntime {
+    // SKIP @nobridge
     static var shared: GeckoRuntime? = nil
 
+    // SKIP @nobridge
     static func get(_ context: android.content.Context) -> GeckoRuntime {
         if let runtime = shared {
             return runtime
         }
-        let runtime = GeckoRuntime.create(context.applicationContext)
+        let settings = GeckoRuntimeSettings.Builder()
+            .contentBlocking(ContentBlocking.Settings.Builder()
+                .antiTracking(trackingProtection)
+                .enhancedTrackingProtectionLevel(etpLevel)
+                .build())
+            .build()
+        let runtime = GeckoRuntime.create(context.applicationContext, settings)
         shared = runtime
         return runtime
+    }
+
+    /// Applies TrackerBlocking's setting to the running runtime.
+    // SKIP @nobridge
+    static func applyTrackingProtection() {
+        guard let runtime = shared else { return }
+        runtime.settings.contentBlocking.setAntiTracking(trackingProtection)
+        runtime.settings.contentBlocking.setEnhancedTrackingProtectionLevel(etpLevel)
+    }
+
+    // Firefox's standard protection (trackers, social, cryptominers,
+    // fingerprinters), or none.
+    private static var trackingProtection: Int {
+        GeckoTrackingProtection.enabled ? ContentBlocking.AntiTracking.DEFAULT : ContentBlocking.AntiTracking.NONE
+    }
+
+    private static var etpLevel: Int {
+        GeckoTrackingProtection.enabled ? ContentBlocking.EtpLevel.DEFAULT : ContentBlocking.EtpLevel.NONE
     }
 }
 
 /// A tab's GeckoSession. It outlives the GeckoView showing it: the view is
 /// created when the tab is shown and lets go of the session when hidden.
 final class GeckoTab {
-    private let session: GeckoSession = GeckoSession()
+    private let session: GeckoSession
     private let delegate: ZenGeckoDelegate
+    /// Dialogs, permission requests and file pickers (GeckoPrompts.kt).
+    // SKIP @nobridge
+    let prompts: GeckoPrompts
     /// What to load when the session first opens.
     private var initialURL: URL
     /// The view showing the session, if any. A session can only be in one
@@ -88,12 +120,19 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void, onPrompt: @escaping (Int, String, String, String?) -> Void, downloadsDirectory: String, onDownload: @escaping (String, Int, Int) -> Void) {
         initialURL = url
-        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange)
+        // Private mode keeps the session's cookies, storage and cache in
+        // memory, apart from normal tabs.
+        session = GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(isPrivate).build())
+        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow, downloadsDirectory: downloadsDirectory, downloadReported: onDownload)
         session.navigationDelegate = delegate
         session.contentDelegate = delegate
         session.historyDelegate = delegate
+        session.progressDelegate = delegate
+        prompts = GeckoPrompts(onPrompt)
+        session.promptDelegate = prompts
+        session.permissionDelegate = prompts
     }
 
     public func load(url: URL) {
@@ -114,6 +153,25 @@ final class GeckoTab {
 
     public func reload() {
         session.reload()
+    }
+
+    public func stop() {
+        session.stop()
+    }
+
+    /// Finds `text`, selecting the next match (or the previous); `onResult`
+    /// gets whether it was found and which match of how many.
+    public func find(text: String, backwards: Bool, onResult: @escaping (Bool, Int, Int) -> Void) {
+        GeckoFind.find(session, text, backwards, onResult)
+    }
+
+    public func clearFind() {
+        session.finder.clear()
+    }
+
+    /// The user's answer to the dialog or permission request `id`.
+    public func answerPrompt(id: Int, accepted: Bool, text: String?) {
+        prompts.answer(id, accepted, text)
     }
 
     public func close() {
@@ -148,28 +206,78 @@ final class GeckoTab {
     }
 }
 
-private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate, GeckoSession.HistoryDelegate {
+private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate, GeckoSession.HistoryDelegate, GeckoSession.ProgressDelegate {
     // Named apart from the delegate methods below, which Kotlin would
     // otherwise confuse with them.
     let shouldCancel: (URL) -> Bool
     let locationChanged: (URL) -> Void
     let titleChanged: (String?) -> Void
     let historyChanged: (Bool, Bool) -> Void
+    let progressChanged: (Int, Bool) -> Void
+    let securityChanged: (Bool) -> Void
+    let openWindow: (URL) -> Void
+    let downloadsDirectory: String
+    let downloadReported: (String, Int, Int) -> Void
     var canGoBack = false
     var canGoForward = false
+    var progress = 0
+    var isLoading = false
 
-    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void) {
+    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void, downloadsDirectory: String, downloadReported: @escaping (String, Int, Int) -> Void) {
         self.shouldCancel = shouldCancel
         self.locationChanged = locationChanged
         self.titleChanged = titleChanged
         self.historyChanged = historyChanged
+        self.progressChanged = progressChanged
+        self.securityChanged = securityChanged
+        self.openWindow = openWindow
+        self.downloadsDirectory = downloadsDirectory
+        self.downloadReported = downloadReported
+    }
+
+    // What Gecko can't show (a file to download, a link with download):
+    // save it to the Downloads folder (GeckoDownloads.kt).
+    override func onExternalResponse(session: GeckoSession, response: org.mozilla.geckoview.WebResponse) {
+        if downloadsDirectory.isEmpty {
+            response.body?.close()
+            return
+        }
+        GeckoDownloads.save(response, java.io.File(downloadsDirectory), downloadReported)
     }
 
     override func onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest) -> GeckoResult<AllowOrDeny>? {
-        if let url = URL(string: request.uri), shouldCancel(url) {
+        guard let url = URL(string: request.uri) else {
+            return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+        }
+        if shouldCancel(url) {
+            return GeckoResult.fromValue(AllowOrDeny.DENY)
+        }
+        // A target=_blank link or window.open: open it as a new tab instead.
+        if request.target == GeckoSession.NavigationDelegate.TARGET_WINDOW_NEW {
+            openWindow(url)
             return GeckoResult.fromValue(AllowOrDeny.DENY)
         }
         return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+    }
+
+    override func onPageStart(session: GeckoSession, url: String) {
+        progress = 0
+        isLoading = true
+        progressChanged(progress, isLoading)
+    }
+
+    override func onProgressChange(session: GeckoSession, progress: Int) {
+        self.progress = progress
+        progressChanged(progress, isLoading)
+    }
+
+    override func onPageStop(session: GeckoSession, success: Bool) {
+        isLoading = false
+        progressChanged(progress, isLoading)
+    }
+
+    override func onSecurityChange(session: GeckoSession, securityInfo: GeckoSession.ProgressDelegate.SecurityInformation) {
+        securityChanged(securityInfo.isSecure)
     }
 
     override func onLocationChange(session: GeckoSession, url: String?, perms: kotlin.collections.List<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Bool) {
@@ -217,6 +325,7 @@ struct GeckoContentComposer : ContentComposer {
         BackHandler(enabled: canGoBack) {
             tab.goBack()
         }
+        GeckoPromptEffects(tab.prompts)
         AndroidView(factory: { ctx in
             let view = GeckoView(ctx)
             tab.attach(to: view)

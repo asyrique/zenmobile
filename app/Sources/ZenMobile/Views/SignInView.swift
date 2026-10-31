@@ -44,6 +44,7 @@ struct SignInWebView: View {
 
 struct AccountView: View {
     @Environment(AppModel.self) var app
+    @AppStorage(TrackerBlocking.settingKey) var blockTrackers = true
 
     var body: some View {
         Form {
@@ -64,6 +65,17 @@ struct AccountView: View {
                 Text("Firefox account")
             } footer: {
                 Text("Optional. Signing in syncs your open tabs and Zen Spaces with Zen desktop; everything else works without it.")
+            }
+            Section {
+                Toggle("Block trackers", isOn: $blockTrackers)
+                    .accessibilityIdentifier("blockTrackersToggle")
+                    .onChange(of: blockTrackers) { _, _ in
+                        Task { await TrackerBlocking.apply() }
+                    }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("Stops known trackers from following you across websites. Turn off if a site doesn't work.")
             }
             if let error = app.lastSyncError {
                 Section("Last sync") {

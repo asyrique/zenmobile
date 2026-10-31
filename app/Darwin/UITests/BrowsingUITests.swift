@@ -2,8 +2,9 @@ import XCTest
 
 /// End-to-end: launch the real app, open a page in WKWebView through the
 /// address bar, go to a second page in the same tab and back, check the
-/// page's title reaches our tab switcher, then relaunch and check the tab
-/// was restored. Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt
+/// page's title reaches our tab switcher, follow a link that opens a new
+/// window (it becomes a tab), open a private tab, then relaunch and check
+/// the tabs were restored, except the private one. Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt
 /// (which can't relaunch the app it runs in).
 ///
 /// Screenshots of each step are attached to the result bundle and, when
@@ -18,6 +19,7 @@ final class BrowsingUITests: XCTestCase {
     private var title: String { environment["ZEN_E2E_TITLE"] ?? "Zen E2E" }
     private var heading: String { environment["ZEN_E2E_HEADING"] ?? "Hello from Zen" }
     private let secondHeading = "Second page"
+    private let secondTitle = "Zen E2E second"
 
     override func setUp() {
         continueAfterFailure = false
@@ -48,6 +50,17 @@ final class BrowsingUITests: XCTestCase {
         app.descendants(matching: .any)[identifier].firstMatch
     }
 
+    /// Finds a tab card's text, scrolling the tab switcher's row if needed
+    /// (its cards are created as they scroll into view).
+    @discardableResult
+    private func findInTabs(_ text: String) -> XCUIElement {
+        let label = app.staticTexts[text]
+        for _ in 0..<4 where !label.waitForExistence(timeout: 3) {
+            app.scrollViews.firstMatch.swipeLeft()
+        }
+        return waitFor(label, timeout: 10)
+    }
+
     @discardableResult
     private func waitFor(_ element: XCUIElement, timeout: TimeInterval = 30) -> XCUIElement {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Timed out waiting for \(element)")
@@ -73,8 +86,49 @@ final class BrowsingUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         screenshot("page")
 
+        // A JavaScript confirm() shows our dialog; OK reaches the page.
+        waitFor(app.webViews.buttons["Ask to confirm"]).tap()
+        waitFor(element("promptMessage"))
+        screenshot("confirm-dialog")
+        element("promptOK").tap()
+        waitFor(app.webViews.staticTexts["Confirmed"], timeout: 30)
+
+        // Bookmark the page from the page menu.
+        waitFor(element("pageMenu")).tap()
+        waitFor(app.buttons["Add bookmark"]).tap()
+
+        // A download lands in Downloads (tab switcher → Library → Downloads),
+        // and the bookmark in Mobile Bookmarks (Library → Bookmarks).
+        waitFor(app.webViews.links["Download a file"]).tap()
+        element("tabsButton").tap()
+        waitFor(element("libraryButton")).tap()
+        waitFor(element("downloadsButton")).tap()
+        let download = waitFor(app.staticTexts.matching(identifier: "downloadName").firstMatch, timeout: 60)
+        XCTAssertEqual(download.label, "zen-e2e.bin")
+        screenshot("downloads")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        waitFor(element("bookmarksButton")).tap()
+        waitFor(app.buttons["Mobile Bookmarks"]).tap()
+        let bookmark = waitFor(app.staticTexts.matching(identifier: "bookmarkTitle").firstMatch)
+        XCTAssertEqual(bookmark.label, title)
+        screenshot("bookmarks")
+        app.swipeDown(velocity: .fast)
+
+        // Find in page (WebKit only says whether there's a match).
+        waitFor(element("pageMenu")).tap()
+        waitFor(app.buttons["Find in page"]).tap()
+        let findField = waitFor(app.textFields["findField"])
+        findField.tap()
+        findField.typeText("Zen")
+        XCTAssertEqual(waitFor(element("findStatus")).label, "Found")
+        screenshot("find")
+        element("findDone").tap()
+
+
         // Somewhere else in the same tab, through its address, then back.
+        // The address bar starts with the page's address; clear it first.
         element("addressPill").tap()
+        waitFor(element("addressClear")).tap()
         let tabField = waitFor(app.textFields["addressField"])
         tabField.tap()
         tabField.typeText(url + "second.html")
@@ -91,17 +145,51 @@ final class BrowsingUITests: XCTestCase {
         element("tabsButton").tap()
         waitFor(app.staticTexts[title], timeout: 30)
         screenshot("tab-switcher")
+        element("tabsDone").tap()
 
-        app.swipeDown(velocity: .fast)
+        // A link that opens a new window opens a new tab.
+        waitFor(app.webViews.links["Open in a new tab"]).tap()
+        waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
+        element("tabsButton").tap()
+        waitFor(app.staticTexts[secondTitle], timeout: 30)
+        screenshot("new-window-tab")
+        element("tabsDone").tap()
+
+        // A private tab: marked in the tab switcher, not kept after a restart.
+        waitFor(element("newTabButton")).tap()
+        let privateToggle = waitFor(app.switches["privateToggle"])
+        privateToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let privateField = waitFor(app.textFields["addressField"])
+        privateField.tap()
+        privateField.typeText(url)
+        element("addressGo").tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
+        element("tabsButton").tap()
+        findInTabs("Private")
+        screenshot("private-tab")
+        element("tabsDone").tap()
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(element("newTabButton")).tap()
+        let suggestField = waitFor(app.textFields["addressField"])
+        suggestField.tap()
+        suggestField.typeText("Zen")
+        let suggestion = waitFor(app.buttons.matching(identifier: "suggestion").firstMatch, timeout: 30)
+        screenshot("suggestions")
+        suggestion.tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
+
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))
         screenshot("spaces")
 
-        // Tabs survive a restart.
+        // Tabs survive a restart; the private one doesn't.
         app.terminate()
         app.launch()
         waitFor(element("tabsButton"), timeout: 120).tap()
         waitFor(app.staticTexts[title], timeout: 30)
+        waitFor(app.staticTexts[secondTitle])
+        XCTAssertFalse(app.staticTexts["Private"].exists, "The private tab was restored")
         screenshot("restored")
     }
 }

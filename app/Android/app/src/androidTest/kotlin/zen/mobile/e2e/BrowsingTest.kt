@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -17,8 +18,9 @@ import org.junit.runner.RunWith
 
 /**
  * End-to-end: launch the real app, open a page in GeckoView through the
- * address bar, go to a second page in the same tab and back, and check the
- * page titles reach our tab switcher. (Unlike the iOS test, it can't check
+ * address bar, go to a second page in the same tab and back, check the page
+ * titles reach our tab switcher, follow a link that opens a new window (it
+ * becomes a tab) and open a private tab. (Unlike the iOS test, it can't check
  * tabs survive a restart: the test runs inside the app's process.)
  *
  * Driven from outside the app with UiAutomator, using the SwiftUI
@@ -56,6 +58,15 @@ class BrowsingTest {
         device.takeScreenshot(File(screenshots, "%02d-%s.png".format(step, name)))
     }
 
+    /** Finds a tab card's text, scrolling the tab switcher's row if needed. */
+    private fun findInTabs(text: String): UiObject2 {
+        repeat(4) {
+            device.wait(Until.findObject(By.text(text)), 3_000)?.let { return it }
+            device.findObject(By.scrollable(true))?.scroll(Direction.RIGHT, 1f)
+        }
+        return waitFor(By.text(text), 10_000)
+    }
+
     private fun waitFor(selector: BySelector, timeoutMs: Long = 30_000): UiObject2 =
         device.wait(Until.findObject(selector), timeoutMs)
             ?: throw AssertionError("Timed out after ${timeoutMs}ms waiting for $selector")
@@ -87,8 +98,52 @@ class BrowsingTest {
         Thread.sleep(10_000)
         screenshot("page")
 
-        // Somewhere else in the same tab, through its address.
+        // A JavaScript confirm() shows our dialog; OK reaches the page.
+        waitFor(By.text("Ask to confirm"), 30_000).click()
+        waitFor(By.res("promptMessage"), 30_000)
+        screenshot("confirm-dialog")
+        waitFor(By.res("promptOK")).click()
+        waitFor(By.text("Confirmed"), 30_000)
+
+        // Bookmark the page from the page menu.
+        waitFor(By.res("pageMenu")).click()
+        waitFor(By.text("Add bookmark")).click()
+
+        // A download lands in Downloads (tab switcher → Library → Downloads),
+        // and the bookmark in Mobile Bookmarks (Library → Bookmarks).
+        waitFor(By.text("Download a file"), 30_000).click()
+        waitFor(By.res("tabsButton")).click()
+        // Let the tab switcher finish sliding up: a navigation tap that lands
+        // mid-animation can leave the pushed screen blank (Skip on Android).
+        device.waitForIdle()
+        Thread.sleep(1_000)
+        waitFor(By.res("libraryButton")).click()
+        waitFor(By.res("downloadsButton")).click()
+        waitFor(By.res("downloadName").text("zen-e2e.bin"), 60_000)
+        screenshot("downloads")
+        device.pressBack()
+        waitFor(By.res("bookmarksButton")).click()
+        waitFor(By.text("Mobile Bookmarks")).click()
+        waitFor(By.res("bookmarkTitle").text(title), 30_000)
+        screenshot("bookmarks")
+        // Bookmarks folder, Bookmarks, Library, then the tab switcher.
+        repeat(4) { device.pressBack() }
+
+        // Find in page: Gecko counts matches; the page has one "Zen".
+        waitFor(By.res("pageMenu")).click()
+        waitFor(By.text("Find in page")).click()
+        waitFor(By.res("findField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text Zen")
+        waitFor(By.res("findStatus").text("1 of 1"), 30_000)
+        screenshot("find")
+        waitFor(By.res("findDone")).click()
+
+
+        // Somewhere else in the same tab, through its address. The address
+        // bar starts with the page's address; clear it first.
         waitFor(By.res("addressPill")).click()
+        waitFor(By.res("addressClear")).click()
         waitFor(By.res("addressField")).click()
         device.waitForIdle()
         device.executeShellCommand("input text ${url}second.html")
@@ -111,8 +166,43 @@ class BrowsingTest {
         waitFor(By.res("tabsButton")).click()
         waitFor(By.text(title), 60_000)
         screenshot("tab-switcher")
-
         device.pressBack()
+
+        // A link that opens a new window opens a new tab. GeckoView exposes
+        // the page to accessibility, so UiAutomator can find the link.
+        waitFor(By.text("Open in a new tab"), 30_000).click()
+        Thread.sleep(5_000)
+        waitFor(By.res("tabsButton")).click()
+        waitFor(By.text(secondTitle), 60_000)
+        screenshot("new-window-tab")
+        device.pressBack()
+
+        // A private tab, marked in the tab switcher.
+        waitFor(By.res("newTabButton")).click()
+        val toggle = waitFor(By.res("privateToggle")).visibleBounds
+        device.click(toggle.right - 40, toggle.centerY())
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text $url")
+        waitFor(By.res("addressGo").enabled(true), 10_000).click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        Thread.sleep(5_000)
+        waitFor(By.res("tabsButton")).click()
+        findInTabs("Private")
+        screenshot("private-tab")
+        device.pressBack()
+
+        // History suggests the page in a new tab's address bar.
+        waitFor(By.res("newTabButton")).click()
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text Zen")
+        val suggestion = waitFor(By.res("suggestion"), 30_000)
+        screenshot("suggestions")
+        suggestion.click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        Thread.sleep(5_000)
+
         waitFor(By.res("spacesButton")).click()
         waitFor(By.res("spacesEmptyState"))
         screenshot("spaces")
