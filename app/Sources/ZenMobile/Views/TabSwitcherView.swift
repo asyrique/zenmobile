@@ -27,7 +27,7 @@ struct TabSwitcherView: View {
                 }
                 HStack {
                     Button { showDesktopTabs = true } label: {
-                        Image(systemName: "desktopcomputer")
+                        ZenSymbolImage(symbol: .desktop)
                             .frame(width: 48, height: 48)
                             .background(Circle().fill(Color.primary.opacity(0.12)))
                     }
@@ -62,9 +62,15 @@ struct TabSwitcherView: View {
                 Button { browser.close(tab.id) } label: { Image(systemName: "xmark") }
                     .accessibilityLabel(Text("Close tab"))
             }
-            Text(tab.url.host ?? tab.url.absoluteString)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                if tab.isPrivate {
+                    ZenSymbolImage(symbol: .privateTab, size: 14).font(.caption)
+                    Text("Private").font(.footnote.bold())
+                }
+                Text(tab.url.host ?? tab.url.absoluteString)
+                    .font(.footnote)
+            }
+            .foregroundStyle(.secondary)
             Spacer()
         }
         .padding()

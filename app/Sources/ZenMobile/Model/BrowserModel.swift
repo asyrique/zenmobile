@@ -16,6 +16,8 @@ import SkipFuse
 
         @MainActor var url: URL { page.url }
 
+        @MainActor var isPrivate: Bool { page.isPrivate }
+
         @MainActor var title: String {
             page.title.isEmpty ? (page.url.host ?? page.url.absoluteString) : page.title
         }
@@ -38,12 +40,12 @@ import SkipFuse
         restore()
     }
 
-    func open(_ url: URL, title: String = "", zenTabId: String? = nil) {
+    func open(_ url: URL, title: String = "", zenTabId: String? = nil, isPrivate: Bool = false) {
         if let zenTabId, let existing = tabs.first(where: { $0.zenTabId == zenTabId }) {
             selectedTabId = existing.id
             return
         }
-        let tab = Tab(page: makePage(url: url, title: title), zenTabId: zenTabId)
+        let tab = Tab(page: makePage(url: url, title: title, isPrivate: isPrivate), zenTabId: zenTabId)
         tabs.append(tab)
         selectedTabId = tab.id
     }
@@ -59,11 +61,13 @@ import SkipFuse
         }
     }
 
-    private func makePage(url: URL, title: String) -> WebPage {
-        let page = WebPage(url: url, title: title)
+    private func makePage(url: URL, title: String, isPrivate: Bool = false) -> WebPage {
+        let page = WebPage(url: url, title: title, isPrivate: isPrivate)
         // Pages change as the user browses; save each change, so a tab
         // reopens where it was even if the app is killed.
         page.onChange = { [weak self] in self?.save() }
+        // Windows a private page opens are private too.
+        page.onOpenWindow = { [weak self] url in self?.open(url, isPrivate: isPrivate) }
         return page
     }
 
@@ -82,9 +86,10 @@ import SkipFuse
 
     private func save() {
         guard let storeURL else { return }
+        let kept = tabs.filter { !$0.isPrivate }
         let saved = SavedTabs(
-            tabs: tabs.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId) },
-            selected: tabs.firstIndex { $0.id == selectedTabId })
+            tabs: kept.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId) },
+            selected: kept.firstIndex { $0.id == selectedTabId })
         do {
             try JSONEncoder().encode(saved).write(to: storeURL, options: .atomic)
         } catch {

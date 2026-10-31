@@ -57,6 +57,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 
 private final class ZenGeckoRuntime {
@@ -75,7 +76,7 @@ private final class ZenGeckoRuntime {
 /// A tab's GeckoSession. It outlives the GeckoView showing it: the view is
 /// created when the tab is shown and lets go of the session when hidden.
 final class GeckoTab {
-    private let session: GeckoSession = GeckoSession()
+    private let session: GeckoSession
     private let delegate: ZenGeckoDelegate
     /// What to load when the session first opens.
     private var initialURL: URL
@@ -88,12 +89,16 @@ final class GeckoTab {
     // them up by their Swift names.
 
     // Explicit so the generated Swift bridge marks the closures @escaping.
-    init(url: URL, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void) {
+    init(url: URL, isPrivate: Bool, shouldCancel: @escaping (URL) -> Bool, onLocationChange: @escaping (URL) -> Void, onTitleChange: @escaping (String?) -> Void, onHistoryChange: @escaping (Bool, Bool) -> Void, onProgressChange: @escaping (Int, Bool) -> Void, onSecurityChange: @escaping (Bool) -> Void, onOpenWindow: @escaping (URL) -> Void) {
         initialURL = url
-        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange)
+        // Private mode keeps the session's cookies, storage and cache in
+        // memory, apart from normal tabs.
+        session = GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(isPrivate).build())
+        delegate = ZenGeckoDelegate(shouldCancel: shouldCancel, locationChanged: onLocationChange, titleChanged: onTitleChange, historyChanged: onHistoryChange, progressChanged: onProgressChange, securityChanged: onSecurityChange, openWindow: onOpenWindow)
         session.navigationDelegate = delegate
         session.contentDelegate = delegate
         session.historyDelegate = delegate
+        session.progressDelegate = delegate
     }
 
     public func load(url: URL) {
@@ -114,6 +119,10 @@ final class GeckoTab {
 
     public func reload() {
         session.reload()
+    }
+
+    public func stop() {
+        session.stop()
     }
 
     public func close() {
@@ -148,28 +157,64 @@ final class GeckoTab {
     }
 }
 
-private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate, GeckoSession.HistoryDelegate {
+private final class ZenGeckoDelegate: GeckoSession.NavigationDelegate, GeckoSession.ContentDelegate, GeckoSession.HistoryDelegate, GeckoSession.ProgressDelegate {
     // Named apart from the delegate methods below, which Kotlin would
     // otherwise confuse with them.
     let shouldCancel: (URL) -> Bool
     let locationChanged: (URL) -> Void
     let titleChanged: (String?) -> Void
     let historyChanged: (Bool, Bool) -> Void
+    let progressChanged: (Int, Bool) -> Void
+    let securityChanged: (Bool) -> Void
+    let openWindow: (URL) -> Void
     var canGoBack = false
     var canGoForward = false
+    var progress = 0
+    var isLoading = false
 
-    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void) {
+    init(shouldCancel: @escaping (URL) -> Bool, locationChanged: @escaping (URL) -> Void, titleChanged: @escaping (String?) -> Void, historyChanged: @escaping (Bool, Bool) -> Void, progressChanged: @escaping (Int, Bool) -> Void, securityChanged: @escaping (Bool) -> Void, openWindow: @escaping (URL) -> Void) {
         self.shouldCancel = shouldCancel
         self.locationChanged = locationChanged
         self.titleChanged = titleChanged
         self.historyChanged = historyChanged
+        self.progressChanged = progressChanged
+        self.securityChanged = securityChanged
+        self.openWindow = openWindow
     }
 
     override func onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest) -> GeckoResult<AllowOrDeny>? {
-        if let url = URL(string: request.uri), shouldCancel(url) {
+        guard let url = URL(string: request.uri) else {
+            return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+        }
+        if shouldCancel(url) {
+            return GeckoResult.fromValue(AllowOrDeny.DENY)
+        }
+        // A target=_blank link or window.open: open it as a new tab instead.
+        if request.target == GeckoSession.NavigationDelegate.TARGET_WINDOW_NEW {
+            openWindow(url)
             return GeckoResult.fromValue(AllowOrDeny.DENY)
         }
         return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+    }
+
+    override func onPageStart(session: GeckoSession, url: String) {
+        progress = 0
+        isLoading = true
+        progressChanged(progress, isLoading)
+    }
+
+    override func onProgressChange(session: GeckoSession, progress: Int) {
+        self.progress = progress
+        progressChanged(progress, isLoading)
+    }
+
+    override func onPageStop(session: GeckoSession, success: Bool) {
+        isLoading = false
+        progressChanged(progress, isLoading)
+    }
+
+    override func onSecurityChange(session: GeckoSession, securityInfo: GeckoSession.ProgressDelegate.SecurityInformation) {
+        securityChanged(securityInfo.isSecure)
     }
 
     override func onLocationChange(session: GeckoSession, url: String?, perms: kotlin.collections.List<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Bool) {

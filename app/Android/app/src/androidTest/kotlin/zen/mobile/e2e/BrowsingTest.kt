@@ -17,8 +17,9 @@ import org.junit.runner.RunWith
 
 /**
  * End-to-end: launch the real app, open a page in GeckoView through the
- * address bar, go to a second page in the same tab and back, and check the
- * page titles reach our tab switcher. (Unlike the iOS test, it can't check
+ * address bar, go to a second page in the same tab and back, check the page
+ * titles reach our tab switcher, follow a link that opens a new window (it
+ * becomes a tab) and open a private tab. (Unlike the iOS test, it can't check
  * tabs survive a restart: the test runs inside the app's process.)
  *
  * Driven from outside the app with UiAutomator, using the SwiftUI
@@ -87,8 +88,10 @@ class BrowsingTest {
         Thread.sleep(10_000)
         screenshot("page")
 
-        // Somewhere else in the same tab, through its address.
+        // Somewhere else in the same tab, through its address. The address
+        // bar starts with the page's address; clear it first.
         waitFor(By.res("addressPill")).click()
+        waitFor(By.res("addressClear")).click()
         waitFor(By.res("addressField")).click()
         device.waitForIdle()
         device.executeShellCommand("input text ${url}second.html")
@@ -111,8 +114,32 @@ class BrowsingTest {
         waitFor(By.res("tabsButton")).click()
         waitFor(By.text(title), 60_000)
         screenshot("tab-switcher")
-
         device.pressBack()
+
+        // A link that opens a new window opens a new tab. GeckoView exposes
+        // the page to accessibility, so UiAutomator can find the link.
+        waitFor(By.text("Open in a new tab"), 30_000).click()
+        Thread.sleep(5_000)
+        waitFor(By.res("tabsButton")).click()
+        waitFor(By.text(secondTitle), 60_000)
+        screenshot("new-window-tab")
+        device.pressBack()
+
+        // A private tab, marked in the tab switcher.
+        waitFor(By.res("newTabButton")).click()
+        val toggle = waitFor(By.res("privateToggle")).visibleBounds
+        device.click(toggle.right - 40, toggle.centerY())
+        waitFor(By.res("addressField")).click()
+        device.waitForIdle()
+        device.executeShellCommand("input text $url")
+        waitFor(By.res("addressGo").enabled(true), 10_000).click()
+        device.wait(Until.gone(By.res("addressField")), 10_000)
+        Thread.sleep(5_000)
+        waitFor(By.res("tabsButton")).click()
+        waitFor(By.text("Private"), 30_000)
+        screenshot("private-tab")
+        device.pressBack()
+
         waitFor(By.res("spacesButton")).click()
         waitFor(By.res("spacesEmptyState"))
         screenshot("spaces")

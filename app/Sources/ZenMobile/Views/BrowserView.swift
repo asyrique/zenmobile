@@ -40,22 +40,19 @@ struct BrowserView: View {
             TabSwitcherView()
         }
         .sheet(isPresented: $showAddressBar) {
-            AddressBarView(placeholder: addressBarPlaceholder) { url in
-                if addressBarEditsTab, let tab = browser.selectedTab {
+            if addressBarEditsTab, let tab = browser.selectedTab {
+                // Starts with the page's address, to edit or replace.
+                AddressBarView(text: tab.url.absoluteString, allowsPrivate: false) { url, _ in
                     tab.page.load(url)
-                } else {
-                    browser.open(url)
+                    showAddressBar = false
                 }
-                showAddressBar = false
+            } else {
+                AddressBarView(allowsPrivate: true) { url, isPrivate in
+                    browser.open(url, isPrivate: isPrivate)
+                    showAddressBar = false
+                }
             }
         }
-    }
-
-    private var addressBarPlaceholder: String {
-        if addressBarEditsTab, let tab = browser.selectedTab {
-            return tab.url.absoluteString
-        }
-        return "Search or enter address"
     }
 
     private func openAddressBar(editingTab: Bool) {
@@ -76,45 +73,75 @@ struct BrowserView: View {
     }
 }
 
-/// Back, forward, the page's address (tap to go somewhere else in this tab)
-/// and reload.
+/// Back, forward, the page's address (tap to go somewhere else in this tab),
+/// reload or stop, and share; with the load's progress along the top.
 struct NavigationBar: View {
     let page: WebPage
     let onAddress: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button { page.goBack() } label: {
-                Image(systemName: "chevron.left").frame(width: 40, height: 36)
+        VStack(spacing: 0) {
+            if page.isLoading {
+                ProgressView(value: page.progress)
+                    .progressViewStyle(.linear)
+                    .accessibilityIdentifier("pageProgress")
             }
-            .disabled(!page.canGoBack)
-            .accessibilityLabel(Text("Back"))
-            .accessibilityIdentifier("backButton")
-            Button { page.goForward() } label: {
-                Image(systemName: "chevron.right").frame(width: 40, height: 36)
-            }
-            .disabled(!page.canGoForward)
-            .accessibilityLabel(Text("Forward"))
-            .accessibilityIdentifier("forwardButton")
-            Button(action: onAddress) {
-                Text(page.url.host ?? page.url.absoluteString)
-                    .font(.footnote)
-                    .lineLimit(1)
+            HStack(spacing: 8) {
+                Button { page.goBack() } label: {
+                    Image(systemName: "chevron.left").frame(width: 36, height: 36)
+                }
+                .disabled(!page.canGoBack)
+                .accessibilityLabel(Text("Back"))
+                .accessibilityIdentifier("backButton")
+                Button { page.goForward() } label: {
+                    Image(systemName: "chevron.right").frame(width: 36, height: 36)
+                }
+                .disabled(!page.canGoForward)
+                .accessibilityLabel(Text("Forward"))
+                .accessibilityIdentifier("forwardButton")
+                Button(action: onAddress) {
+                    HStack(spacing: 6) {
+                        if page.isPrivate {
+                            ZenSymbolImage(symbol: .privateTab, size: 14).font(.caption)
+                        }
+                        // A padlock for pages that came entirely over HTTPS.
+                        Image(systemName: page.isSecure ? "lock" : "info.circle")
+                            .font(.caption)
+                            .accessibilityLabel(Text(page.isSecure ? "Secure connection" : "Connection not secure"))
+                            .accessibilityIdentifier("securityIndicator")
+                        Text(page.url.host ?? page.url.absoluteString)
+                            .font(.footnote)
+                            .lineLimit(1)
+                    }
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
                     .background(Capsule().fill(Color.primary.opacity(0.1)))
+                }
+                .accessibilityLabel(Text("Address"))
+                .accessibilityIdentifier("addressPill")
+                if page.isLoading {
+                    Button { page.stop() } label: {
+                        Image(systemName: "xmark").frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel(Text("Stop"))
+                    .accessibilityIdentifier("stopButton")
+                } else {
+                    Button { page.reload() } label: {
+                        Image(systemName: "arrow.clockwise.circle").frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel(Text("Reload"))
+                    .accessibilityIdentifier("reloadButton")
+                }
+                ShareLink(item: page.url) {
+                    Image(systemName: "square.and.arrow.up").frame(width: 36, height: 36)
+                }
+                .accessibilityLabel(Text("Share"))
+                .accessibilityIdentifier("shareButton")
             }
-            .accessibilityLabel(Text("Address"))
-            .accessibilityIdentifier("addressPill")
-            Button { page.reload() } label: {
-                Image(systemName: "arrow.clockwise.circle").frame(width: 40, height: 36)
-            }
-            .accessibilityLabel(Text("Reload"))
-            .accessibilityIdentifier("reloadButton")
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
         }
         .foregroundStyle(Color.primary)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
     }
 }
 
@@ -243,32 +270,51 @@ struct SyncPromptCard: View {
 }
 
 struct AddressBarView: View {
-    let placeholder: String
-    let onSubmit: (URL) -> Void
-    @State var text = ""
+    /// Whether to offer opening the page in a private tab.
+    let allowsPrivate: Bool
+    let onSubmit: (URL, Bool) -> Void
+    @State var text: String
+    @State var isPrivate = false
+
+    init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
+        _text = State(initialValue: text)
+        self.allowsPrivate = allowsPrivate
+        self.onSubmit = onSubmit
+    }
 
     var body: some View {
-        VStack {
+        VStack(alignment: .leading) {
             HStack {
-                TextField(placeholder, text: $text)
+                TextField("Search or enter address", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .onSubmit(submit)
                     .accessibilityIdentifier("addressField")
+                if !text.isEmpty {
+                    Button { text = "" } label: {
+                        Image(systemName: "xmark").frame(width: 32, height: 32)
+                    }
+                    .accessibilityLabel(Text("Clear"))
+                    .accessibilityIdentifier("addressClear")
+                }
                 Button("Go", action: submit)
                     .buttonStyle(.borderedProminent)
                     .disabled(text.isEmpty)
                     .accessibilityIdentifier("addressGo")
             }
-            .padding()
+            if allowsPrivate {
+                Toggle("Private tab", isOn: $isPrivate)
+                    .accessibilityIdentifier("privateToggle")
+            }
             Spacer()
         }
+        .padding()
         .presentationDetents([.medium])
     }
 
     private func submit() {
         if let url = BrowserModel.url(forInput: text) {
-            onSubmit(url)
+            onSubmit(url, isPrivate)
         }
     }
 }

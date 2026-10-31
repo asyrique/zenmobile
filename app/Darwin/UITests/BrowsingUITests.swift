@@ -2,8 +2,9 @@ import XCTest
 
 /// End-to-end: launch the real app, open a page in WKWebView through the
 /// address bar, go to a second page in the same tab and back, check the
-/// page's title reaches our tab switcher, then relaunch and check the tab
-/// was restored. Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt
+/// page's title reaches our tab switcher, follow a link that opens a new
+/// window (it becomes a tab), open a private tab, then relaunch and check
+/// the tabs were restored, except the private one. Mirrors app/Android/app/src/androidTest/.../BrowsingTest.kt
 /// (which can't relaunch the app it runs in).
 ///
 /// Screenshots of each step are attached to the result bundle and, when
@@ -18,6 +19,7 @@ final class BrowsingUITests: XCTestCase {
     private var title: String { environment["ZEN_E2E_TITLE"] ?? "Zen E2E" }
     private var heading: String { environment["ZEN_E2E_HEADING"] ?? "Hello from Zen" }
     private let secondHeading = "Second page"
+    private let secondTitle = "Zen E2E second"
 
     override func setUp() {
         continueAfterFailure = false
@@ -74,7 +76,9 @@ final class BrowsingUITests: XCTestCase {
         screenshot("page")
 
         // Somewhere else in the same tab, through its address, then back.
+        // The address bar starts with the page's address; clear it first.
         element("addressPill").tap()
+        waitFor(element("addressClear")).tap()
         let tabField = waitFor(app.textFields["addressField"])
         tabField.tap()
         tabField.typeText(url + "second.html")
@@ -93,15 +97,40 @@ final class BrowsingUITests: XCTestCase {
         screenshot("tab-switcher")
 
         app.swipeDown(velocity: .fast)
+
+        // A link that opens a new window opens a new tab.
+        waitFor(app.webViews.links["Open in a new tab"]).tap()
+        waitFor(app.webViews.staticTexts[secondHeading], timeout: 60)
+        element("tabsButton").tap()
+        waitFor(app.staticTexts[secondTitle], timeout: 30)
+        screenshot("new-window-tab")
+        app.swipeDown(velocity: .fast)
+
+        // A private tab: marked in the tab switcher, not kept after a restart.
+        waitFor(element("newTabButton")).tap()
+        let privateToggle = waitFor(app.switches["privateToggle"])
+        privateToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let privateField = waitFor(app.textFields["addressField"])
+        privateField.tap()
+        privateField.typeText(url)
+        element("addressGo").tap()
+        waitFor(app.webViews.staticTexts[heading], timeout: 60)
+        element("tabsButton").tap()
+        waitFor(app.staticTexts["Private"], timeout: 30)
+        screenshot("private-tab")
+        app.swipeDown(velocity: .fast)
+
         waitFor(element("spacesButton")).tap()
         waitFor(element("spacesEmptyState"))
         screenshot("spaces")
 
-        // Tabs survive a restart.
+        // Tabs survive a restart; the private one doesn't.
         app.terminate()
         app.launch()
         waitFor(element("tabsButton"), timeout: 120).tap()
         waitFor(app.staticTexts[title], timeout: 30)
+        waitFor(app.staticTexts[secondTitle])
+        XCTAssertFalse(app.staticTexts["Private"].exists, "The private tab was restored")
         screenshot("restored")
     }
 }
