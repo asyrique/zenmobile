@@ -13,6 +13,9 @@ struct BrowserView: View {
     /// Whether the address bar loads into the current tab (tapped its
     /// address) rather than opening a new one.
     @State var addressBarEditsTab = false
+    /// The address bar's text, kept here rather than in the sheet so
+    /// re-creating the sheet's view (Skip on Android does) can't reset it.
+    @State var addressText = ""
     @State var findingInPage = false
 
     var body: some View {
@@ -55,17 +58,13 @@ struct BrowserView: View {
             }
         }
         .sheet(isPresented: $showAddressBar) {
-            if addressBarEditsTab, let tab = browser.selectedTab {
-                // Starts with the page's address, to edit or replace.
-                AddressBarView(text: tab.url.absoluteString, allowsPrivate: false) { url, _ in
+            AddressBarView(text: $addressText, allowsPrivate: !addressBarEditsTab) { url, isPrivate in
+                if addressBarEditsTab, let tab = browser.selectedTab {
                     tab.page.load(url)
-                    showAddressBar = false
-                }
-            } else {
-                AddressBarView(allowsPrivate: true) { url, isPrivate in
+                } else {
                     browser.open(url, isPrivate: isPrivate)
-                    showAddressBar = false
                 }
+                showAddressBar = false
             }
         }
     }
@@ -84,6 +83,8 @@ struct BrowserView: View {
 
     private func openAddressBar(editingTab: Bool) {
         addressBarEditsTab = editingTab
+        // Editing starts with the page's address, to change or replace.
+        addressText = editingTab ? (browser.selectedTab?.url.absoluteString ?? "") : ""
         showAddressBar = true
     }
 
@@ -413,13 +414,13 @@ struct AddressBarView: View {
     /// Whether to offer opening the page in a private tab.
     let allowsPrivate: Bool
     let onSubmit: (URL, Bool) -> Void
-    @State var text: String
+    @Binding var text: String
     @State var isPrivate = false
     /// Pages from history and bookmarks matching the text.
     @State var suggestions: [Places.Suggestion] = []
 
-    init(text: String = "", allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
-        _text = State(initialValue: text)
+    init(text: Binding<String>, allowsPrivate: Bool, onSubmit: @escaping (URL, Bool) -> Void) {
+        _text = text
         self.allowsPrivate = allowsPrivate
         self.onSubmit = onSubmit
     }
