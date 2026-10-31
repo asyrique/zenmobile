@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -66,6 +67,22 @@ class BrowsingTest {
             device.findObject(By.scrollable(true))?.scroll(Direction.RIGHT, 1f)
         }
         return waitFor(By.text(text), 10_000)
+    }
+
+    /**
+     * Taps what [selector] finds, finding it again if the screen re-renders
+     * in between (lists that fill in asynchronously replace their rows).
+     */
+    private fun tap(selector: BySelector, timeoutMs: Long = 30_000) {
+        repeat(3) {
+            try {
+                waitFor(selector, timeoutMs).click()
+                return
+            } catch (e: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        waitFor(selector, timeoutMs).click()
     }
 
     /** The first of [selectors] to appear; on failure, saves the screen's hierarchy. */
@@ -146,7 +163,7 @@ class BrowsingTest {
         screenshot("downloads")
         device.pressBack()
         waitFor(By.res("bookmarksButton")).click()
-        waitFor(By.text("Mobile Bookmarks")).click()
+        tap(By.text("Mobile Bookmarks"))
         waitFor(By.res("bookmarkTitle").text(title), 30_000)
         screenshot("bookmarks")
         // Bookmarks folder, Bookmarks, Library, then the tab switcher.
