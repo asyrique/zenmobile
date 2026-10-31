@@ -203,6 +203,7 @@ struct FindBar: View {
     let page: WebPage
     let onDone: () -> Void
     @State var text = ""
+    @FocusState var fieldFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -210,6 +211,7 @@ struct FindBar: View {
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
                 .onSubmit { page.find(text) }
+                .focused($fieldFocused)
                 .accessibilityIdentifier("findField")
             if let status {
                 Text(status)
@@ -228,6 +230,10 @@ struct FindBar: View {
             .disabled(text.isEmpty)
             .accessibilityLabel(Text("Next match"))
             Button("Done") {
+                // Let go of the keyboard before the bar goes away: removed
+                // while focused, on Android the next text field loses the
+                // keyboard partway through typing.
+                fieldFocused = false
                 page.endFind()
                 onDone()
             }
