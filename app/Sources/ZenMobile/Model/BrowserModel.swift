@@ -54,6 +54,13 @@ import ZenCore
         self.places = places
         self.logins = logins
         restore()
+        // Tabs other devices sent while the browser wasn't running.
+        if storeURL != nil {
+            let waiting = SentTabsInbox.take()
+            if !waiting.isEmpty {
+                receive(waiting)
+            }
+        }
     }
 
     /// Opens a tab and shows it. A tab for a pin that's already open shows

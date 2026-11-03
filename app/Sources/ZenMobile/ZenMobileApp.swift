@@ -20,7 +20,7 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Kotlin side never sees them.
 struct RootContent: View {
     @Environment(\.scenePhase) var scenePhase
-    @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
+    @State var app = AppModel.shared
     @State var downloads: Downloads
     @State var places: Places
     @State var logins: Logins
@@ -60,12 +60,30 @@ struct RootContent: View {
             app.onTabsReceived = { [browser] tabs in browser.receive(tabs) }
             app.onTabsClosed = { [browser] urls in browser.closeTabs(at: urls) }
             await app.start()
+            app.setInForeground(true)
+            BackgroundChecks.accountChanged(signedIn: app.isSignedIn)
         }
         .onChange(of: scenePhase) { _, phase in
+            app.setInForeground(phase == .active)
             if phase == .active {
                 Task { await app.didBecomeActive() }
+            } else if phase == .background, app.isSignedIn {
+                BackgroundChecks.schedule()
             }
         }
+        .onChange(of: app.isSignedIn) { _, signedIn in
+            BackgroundChecks.accountChanged(signedIn: signedIn)
+        }
+        #if os(Android)
+        // Android 13 asks before an app may post notifications (tabs sent
+        // here in the background).
+        .background {
+            if app.isSignedIn {
+                ComposeView { NotificationPermissionComposer() }
+                    .frame(width: 1, height: 1)
+            }
+        }
+        #endif
     }
 
     static func dataDirectory() -> URL {
@@ -86,6 +104,8 @@ struct RootContent: View {
 
     /* SKIP @bridge */public func onInit() {
         logger.debug("onInit")
+        // iOS needs background tasks registered before launch finishes.
+        MainActor.assumeIsolated { BackgroundChecks.register() }
     }
 
     /* SKIP @bridge */public func onLaunch() {
