@@ -18,6 +18,7 @@ fxa-client.workspace = true
 init_rust_components.workspace = true
 interrupt-support.workspace = true
 parking_lot.workspace = true
+places.workspace = true
 rust-log-forwarder.workspace = true
 sync15 = { workspace = true, features = ["sync-client"] }
 tabs.workspace = true

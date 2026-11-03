@@ -33,12 +33,16 @@ jobs:
         with:
           workspaces: core
           key: core
+      # NSS depends only on the application-services version the core pins.
+      - name: NSS version
+        id: nss-version
+        run: echo "rev=$(scripts/app-services-rev.sh)" >> "$GITHUB_OUTPUT"
       - name: Cache NSS
         id: nss-cache
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/desktop
-          key: nss-desktop-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+          key: nss-desktop-macos-${{ steps.nss-version.outputs.rev }}-${{ hashFiles('scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |
@@ -79,12 +83,16 @@ jobs:
         with:
           workspaces: core
           key: ios
+      # NSS depends only on the application-services version the core pins.
+      - name: NSS version
+        id: nss-version
+        run: echo "rev=$(scripts/app-services-rev.sh)" >> "$GITHUB_OUTPUT"
       - name: Cache NSS
         id: nss-cache
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/ios
-          key: nss-ios-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+          key: nss-ios-${{ steps.nss-version.outputs.rev }}-${{ hashFiles('scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |
@@ -160,12 +168,16 @@ jobs:
         with:
           workspaces: core
           key: android
+      # NSS depends only on the application-services version the core pins.
+      - name: NSS version
+        id: nss-version
+        run: echo "rev=$(scripts/app-services-rev.sh)" >> "$GITHUB_OUTPUT"
       - name: Cache NSS
         id: nss-cache
         uses: actions/cache@v4
         with:
           path: .build-deps/application-services/libs/android
-          key: nss-android-macos-${{ hashFiles('core/Cargo.toml', 'scripts/build-nss.sh', 'scripts/nss/**') }}
+          key: nss-android-macos-${{ steps.nss-version.outputs.rev }}-${{ hashFiles('scripts/build-nss.sh', 'scripts/nss/**') }}
       - name: Build NSS
         if: steps.nss-cache.outputs.cache-hit != 'true'
         run: |

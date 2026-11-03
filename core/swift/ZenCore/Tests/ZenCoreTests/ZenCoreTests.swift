@@ -51,6 +51,18 @@ final class ZenCoreTests: XCTestCase {
         }
     }
 
+    func testPlacesHistoryAndBookmarks() throws {
+        let api = try placesApiNew(dbPath: tempPath("places.db"))
+        let places = try api.newConnection(connType: .readWrite)
+        let url = "https://zen-browser.app/"
+        try places.applyObservation(visit: VisitObservation(url: url, title: "Zen Browser", visitType: .link))
+        XCTAssertEqual(try places.queryAutocomplete(search: "zen", limit: 5).first?.url, url)
+        XCTAssertEqual(try places.getVisitPage(offset: 0, count: 10, excludeTypes: 0).first?.title, "Zen Browser")
+        _ = try places.bookmarksInsert(bookmark: .bookmark(b: InsertableBookmark(
+            parentGuid: "mobile______", position: .append, url: url, title: "Zen")))
+        XCTAssertEqual(try places.bookmarksGetAllWithUrl(url: url).count, 1)
+    }
+
     func testAccountStateMachineStartsDisconnected() throws {
         let account = FirefoxAccount(config: zenFxaConfig())
         let state = try account.processEvent(

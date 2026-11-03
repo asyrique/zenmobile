@@ -41,6 +41,13 @@ real UI.
       button), the Arc-style bottom bar.
 - [x] Each tab keeps its page (WKWebView / GeckoSession) while other tabs are
       shown, and tabs survive a restart.
+- [x] Browser basics: load progress and stop, a padlock for secure pages, share,
+      links that open a new window open as a tab, private tabs (in-memory data,
+      never saved), JavaScript dialogs, site permissions (camera, microphone,
+      location, notifications), file uploads, and downloads (a Downloads list;
+      on iOS also in the Files app). Covered by the end-to-end tests, except
+      permissions, file uploads and share, which need a person at the system
+      UI.
 
 ## M2 — Zen Spaces
 
@@ -52,12 +59,17 @@ real UI.
 
 ## M3 — A browser people keep using
 
-- Tab carousel, tabs grouped by Space.
-- History and bookmarks (application-services `places`), with URL bar suggestions.
-- Send tab both ways and close tabs remotely (FxA device commands, push via APNs/FCM).
-- Content blocking: WKContentRuleList on iOS; uBlock Origin as a built-in extension
-  in GeckoView.
-- Logins (application-services `logins`) with platform autofill.
+- [ ] Tab carousel, tabs grouped by Space.
+- [x] History and bookmarks (application-services `places`), with address bar
+      suggestions; history and bookmarks sync with Firefox/Zen desktop when signed in.
+      A Library (Bookmarks by folder, History, Downloads).
+- [ ] Send tab both ways and close tabs remotely (FxA device commands, push via APNs/FCM).
+- [x] Tracker blocking, on by default: GeckoView's Enhanced Tracking Protection on
+      Android; a WKContentRuleList built from EasyPrivacy on iOS.
+- [ ] Ad blocking: uBlock Origin as a built-in extension in GeckoView; a fuller rule
+      list on iOS.
+- [x] Find in page; download progress.
+- [ ] Logins (application-services `logins`) with platform autofill.
 
 ## M4 — Write-back (risky; needs a test harness first)
 

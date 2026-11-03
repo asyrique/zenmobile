@@ -21,6 +21,10 @@ fi
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 (cd "$CORE" && cargo run -q -p uniffi-bindgen -- generate --language swift --out-dir "$OUT" "$LIB")
+# glean-sym (pulled in by places) declares a UniFFI namespace but none of the
+# FFI functions bindings call, so its bindings wouldn't link; nothing in it is
+# for apps. application-services' own builds leave it out too.
+rm -f "$OUT"/glean_sym.swift "$OUT"/glean_symFFI.h "$OUT"/glean_symFFI.modulemap
 
 GEN_SWIFT="$PKG/Sources/ZenCore/Generated"
 GEN_FFI="$PKG/Sources/ZenCoreFFI/include"

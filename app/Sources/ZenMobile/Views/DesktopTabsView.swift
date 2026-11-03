@@ -28,7 +28,7 @@ struct DesktopTabsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
                                         if tab.pinned {
-                                            Image(systemName: "pin.fill").font(.caption)
+                                            ZenSymbolImage(symbol: .pin, size: 14).font(.caption)
                                         }
                                         Text(tab.title.isEmpty ? urlString : tab.title).lineLimit(1)
                                     }
