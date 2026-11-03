@@ -107,11 +107,15 @@ class AutofillTestActivity : Activity() {
      * A field that names its page's site, as a browser's web view does for
      * its form fields. (A plain layout isn't part of what Android sends the
      * AutoFill service, so the site has to be on the fields.)
+     *
+     * Parameters are nullable on purpose: this activity runs in the test
+     * APK's own process, which has no Kotlin runtime for the null checks
+     * Kotlin adds to non-null parameters.
      */
-    class WebField(context: android.content.Context) : EditText(context) {
-        override fun onProvideAutofillStructure(structure: ViewStructure, flags: Int) {
+    class WebField(context: android.content.Context?) : EditText(context) {
+        override fun onProvideAutofillStructure(structure: ViewStructure?, flags: Int) {
             super.onProvideAutofillStructure(structure, flags)
-            structure.setWebDomain(DOMAIN)
+            structure?.setWebDomain(DOMAIN)
         }
     }
 }
