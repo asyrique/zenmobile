@@ -7,7 +7,8 @@ import ZenCore
 struct SpaceSheet: View {
     @Environment(AppModel.self) var app
     @Environment(\.dismiss) var dismiss
-    let open: (URL, String, String?) -> Void
+    /// Opens a pin: its URL, title, tab id and Space.
+    let open: (URL, String, String, String) -> Void
     @State var selectedSpace: String?
     @State var collapsedFolders: Set<String> = []
 
@@ -20,7 +21,7 @@ struct SpaceSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         essentials(snapshot, space: space)
                         ForEach(visibleRows(space), id: \.self) { row in
-                            rowView(row)
+                            rowView(row, in: space)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -58,7 +59,7 @@ struct SpaceSheet: View {
         if !tabs.isEmpty {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 64))], spacing: 12) {
                 ForEach(tabs, id: \.id) { tab in
-                    Button { openTab(tab) } label: {
+                    Button { openTab(tab, in: space) } label: {
                         FaviconView(tab: tab, size: 28)
                             .frame(width: 64, height: 64)
                             .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.15)))
@@ -87,7 +88,7 @@ struct SpaceSheet: View {
         return rows
     }
 
-    @ViewBuilder private func rowView(_ row: ZenSidebarRow) -> some View {
+    @ViewBuilder private func rowView(_ row: ZenSidebarRow, in space: ZenSpace) -> some View {
         HStack(spacing: 14) {
             switch row.item {
             case let .folder(folder):
@@ -106,7 +107,7 @@ struct SpaceSheet: View {
                     }
                 }
             case let .tab(tab):
-                Button { openTab(tab) } label: {
+                Button { openTab(tab, in: space) } label: {
                     HStack(spacing: 14) {
                         FaviconView(tab: tab, size: 22).frame(width: 28)
                         Text(tab.title).font(.title3).lineLimit(1)
@@ -114,7 +115,7 @@ struct SpaceSheet: View {
                     }
                 }
             case let .split(split):
-                Button { if let first = split.tabs.first { openTab(first) } } label: {
+                Button { if let first = split.tabs.first { openTab(first, in: space) } } label: {
                     HStack(spacing: 14) {
                         ZenSymbolImage(symbol: .split).frame(width: 28)
                         Text(split.tabs.map(\.title).joined(separator: " | "))
@@ -152,9 +153,9 @@ struct SpaceSheet: View {
         .background(Color.white.opacity(0.08))
     }
 
-    private func openTab(_ tab: ZenTab) {
+    private func openTab(_ tab: ZenTab, in space: ZenSpace) {
         guard let url = URL(string: tab.url) else { return }
-        open(url, tab.title, tab.id)
+        open(url, tab.title, tab.id, space.uuid)
     }
 }
 

@@ -18,38 +18,55 @@ struct BrowserView: View {
     /// Where the address bar asked to go, carried out once it has closed.
     @State var addressBarDestination: (url: URL, isPrivate: Bool)?
     @State var findingInPage = false
+    @State var sendingTab = false
 
     var body: some View {
+        let fullScreen = browser.selectedTab?.page.isFullScreen == true
         ZStack(alignment: .bottom) {
             content
-                .ignoresSafeArea(edges: .top)
-            VStack(spacing: 0) {
-                if let tab = browser.selectedTab {
-                    if findingInPage {
-                        FindBar(page: tab.page, onDone: { findingInPage = false })
-                    } else {
-                        NavigationBar(
-                            page: tab.page,
-                            onAddress: { openAddressBar(editingTab: true) },
-                            onFind: { findingInPage = true })
+                .ignoresSafeArea(edges: fullScreen ? .all : .top)
+            // A full-screen page (a video) gets the whole screen.
+            if !fullScreen {
+                VStack(spacing: 0) {
+                    if let notice = browser.receivedNotice {
+                        ReceivedTabsBanner(
+                            message: notice,
+                            onShow: { browser.showReceived() },
+                            onDismiss: { browser.dismissReceivedNotice() })
                     }
+                    if let tab = browser.selectedTab {
+                        if findingInPage {
+                            FindBar(page: tab.page, onDone: { findingInPage = false })
+                        } else {
+                            NavigationBar(
+                                page: tab.page,
+                                onAddress: { openAddressBar(editingTab: true) },
+                                onFind: { findingInPage = true },
+                                onSend: { sendingTab = true })
+                        }
+                    }
+                    BottomBar(
+                        tabCount: browser.tabs.count,
+                        onTabs: { showTabs = true },
+                        onNewTab: { openAddressBar(editingTab: false) },
+                        onSpaces: { showSpaces = true })
                 }
-                BottomBar(
-                    tabCount: browser.tabs.count,
-                    onTabs: { showTabs = true },
-                    onNewTab: { openAddressBar(editingTab: false) },
-                    onSpaces: { showSpaces = true })
+                .background(.ultraThinMaterial)
             }
-            .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showSpaces) {
-            SpaceSheet { url, title, zenTabId in
-                browser.open(url, title: title, zenTabId: zenTabId)
+            SpaceSheet { url, title, zenTabId, spaceId in
+                browser.open(url, title: title, zenTabId: zenTabId, spaceId: spaceId)
                 showSpaces = false
             }
         }
         .sheet(isPresented: $showTabs) {
             TabSwitcherView()
+        }
+        .sheet(isPresented: $sendingTab) {
+            if let tab = browser.selectedTab {
+                SendTabView(url: tab.url, title: tab.title)
+            }
         }
         .sheet(isPresented: showsPrompt) {
             if let page = browser.selectedTab?.page, let prompt = page.prompt {
@@ -106,7 +123,10 @@ struct BrowserView: View {
                 .id(tab.id)
                 .accessibilityIdentifier("webContent")
         } else {
-            StartPage(showSpaces: { showSpaces = true }, showAddressBar: { openAddressBar(editingTab: false) })
+            StartPage(
+                showSpaces: { showSpaces = true },
+                showAddressBar: { openAddressBar(editingTab: false) },
+                open: { url in browser.open(url) })
         }
     }
 }
@@ -115,9 +135,11 @@ struct BrowserView: View {
 /// reload or stop, and share; with the load's progress along the top.
 struct NavigationBar: View {
     @Environment(Places.self) var places
+    @Environment(AppModel.self) var app
     let page: WebPage
     let onAddress: () -> Void
     let onFind: () -> Void
+    let onSend: () -> Void
     @State var isBookmarked = false
 
     var body: some View {
@@ -184,6 +206,13 @@ struct NavigationBar: View {
                         Task { isBookmarked = await places.toggleBookmark(url, title: title) }
                     }
                     Button("Find in page", action: onFind)
+                    Button(page.isDesktopSite ? "Mobile site" : "Desktop site") {
+                        page.setDesktopSite(!page.isDesktopSite)
+                    }
+                    // Needs the account; private pages stay on this device.
+                    if case .signedIn = app.account, !page.isPrivate {
+                        Button("Send to device", action: onSend)
+                    }
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 36, height: 36)
                 }
@@ -195,6 +224,36 @@ struct NavigationBar: View {
         }
         .foregroundStyle(Color.primary)
         .task(id: page.url) { isBookmarked = await places.isBookmarked(page.url) }
+    }
+}
+
+/// Tabs other devices sent: a notice above the bars, with Show.
+struct ReceivedTabsBanner: View {
+    let message: String
+    let onShow: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZenSymbolImage(symbol: .desktop, size: 20)
+            Text(message)
+                .font(.subheadline)
+                .lineLimit(1)
+                .accessibilityIdentifier("receivedTabsMessage")
+            Spacer()
+            Button("Show", action: onShow)
+                .accessibilityIdentifier("receivedTabsShow")
+            Button(action: onDismiss) {
+                Image(systemName: "xmark").frame(width: 32, height: 32)
+            }
+            .accessibilityLabel(Text("Dismiss"))
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(Color.primary.opacity(0.12)))
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 }
 
@@ -309,9 +368,12 @@ struct BottomBar: View {
 /// Firefox is offered once, can be put off, and lives in Settings after that.
 struct StartPage: View {
     @Environment(AppModel.self) var app
+    @Environment(Places.self) var places
     @AppStorage("syncPromptDismissed") var syncPromptDismissed = false
     let showSpaces: () -> Void
     let showAddressBar: () -> Void
+    let open: (URL) -> Void
+    @State var topSites: [Places.Suggestion] = []
 
     var body: some View {
         VStack(spacing: 20) {
@@ -325,12 +387,37 @@ struct StartPage: View {
             if case .signedIn = app.account {
                 Button("Open a Space", action: showSpaces)
             }
+            if !topSites.isEmpty {
+                topSitesGrid
+            }
             Spacer()
             syncPrompt
         }
         .padding(32)
+        .task { topSites = await places.topSites() }
         // Keep everything clear of the floating bottom bar.
         .padding(.bottom, BottomBar.height)
+    }
+
+    /// The most visited sites, as tiles with the site's initial.
+    private var topSitesGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 16) {
+            ForEach(topSites) { site in
+                Button { open(site.url) } label: {
+                    VStack(spacing: 6) {
+                        Text(String((site.url.host ?? site.title).replacingOccurrences(of: "www.", with: "").prefix(1)).uppercased())
+                            .font(.title2.bold())
+                            .frame(width: 52, height: 52)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(Color.primary.opacity(0.12)))
+                        Text(site.title)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("topSite")
+            }
+        }
     }
 
     @ViewBuilder private var syncPrompt: some View {
@@ -388,6 +475,7 @@ struct PromptView: View {
     let host: String
     let onAnswer: (Bool, String?) -> Void
     @State var text: String
+    @State var password = ""
 
     init(prompt: PagePrompt, host: String, onAnswer: @escaping (Bool, String?) -> Void) {
         self.prompt = prompt
@@ -398,30 +486,75 @@ struct PromptView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if prompt.kind != .permission {
+            // The page's own dialogs say who's asking.
+            if prompt.kind == .alert || prompt.kind == .confirm || prompt.kind == .text {
                 Text("\(host) says").font(.headline)
             }
-            Text(prompt.message)
-                .accessibilityIdentifier("promptMessage")
+            if !prompt.message.isEmpty {
+                Text(prompt.message)
+                    .accessibilityIdentifier("promptMessage")
+            }
             if prompt.kind == .text {
                 TextField("", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("promptField")
             }
+            if prompt.kind == .auth {
+                TextField("Username", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("authUsername")
+                SecureField("Password", text: $password)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("authPassword")
+            }
+            if prompt.kind == .choice {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(0..<prompt.options.count, id: \.self) { index in
+                            Button { onAnswer(true, String(index)) } label: {
+                                Text(prompt.options[index])
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 12)
+                            }
+                            .accessibilityIdentifier("promptChoice")
+                        }
+                    }
+                }
+            }
             HStack {
                 Spacer()
                 if prompt.kind != .alert {
-                    Button(prompt.kind == .permission ? "Block" : "Cancel") { onAnswer(false, nil) }
+                    Button(cancelTitle) { onAnswer(false, nil) }
                         .accessibilityIdentifier("promptCancel")
                 }
-                Button(prompt.kind == .permission ? "Allow" : "OK") { onAnswer(true, text) }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("promptOK")
+                if prompt.kind != .choice {
+                    Button(okTitle) { onAnswer(true, prompt.kind == .auth ? text + "\n" + password : text) }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("promptOK")
+                }
             }
             Spacer()
         }
         .padding()
         .presentationDetents([.medium])
+    }
+
+    private var cancelTitle: String {
+        switch prompt.kind {
+        case .permission: return "Block"
+        case .saveLogin: return "Not now"
+        default: return "Cancel"
+        }
+    }
+
+    private var okTitle: String {
+        switch prompt.kind {
+        case .permission: return "Allow"
+        case .saveLogin: return "Save"
+        case .auth: return "Sign in"
+        default: return "OK"
+        }
     }
 }
 

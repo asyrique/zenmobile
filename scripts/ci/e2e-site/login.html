@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The end-to-end tests sign in here: the browser offers to save the
+       password, lists it in Settings → Passwords, and fills it next time. -->
+  <title>Zen E2E sign in</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center;
+           background: linear-gradient(135deg, #4f8ad8, #182f58); color: white; }
+    form { display: grid; gap: 1rem; width: min(80vw, 20rem); }
+    input, button { font-size: 1.2rem; padding: .6rem; border-radius: .5rem; border: 0; }
+  </style>
+</head>
+<body>
+  <form action="second.html" method="get">
+    <h1>Sign in</h1>
+    <input id="username" name="username" type="text" autocomplete="username" placeholder="Username" aria-label="Username">
+    <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password">
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>

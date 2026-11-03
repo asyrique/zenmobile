@@ -5,8 +5,12 @@ import SkipFuse
 #if canImport(WebKit)
 import WebKit
 #endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
-/// Something a page asks the user: a JavaScript dialog or a permission.
+/// Something a page asks the user: a JavaScript dialog, a permission, a
+/// choice from a list, or whether to save a password.
 struct PagePrompt: Identifiable {
     enum Kind: String {
         /// alert(): a message and OK.
@@ -18,12 +22,21 @@ struct PagePrompt: Identifiable {
         /// A site permission (camera, microphone, location, notifications):
         /// Allow or Block.
         case permission
+        /// Pick one of `options` (a <select>, or which saved login to
+        /// fill); the answer's text is the chosen index.
+        case choice
+        /// Save (or update) the password just submitted: Save or Not now.
+        case saveLogin
+        /// HTTP authentication: a username (starting as the default text)
+        /// and a password. The answer's text is "username\npassword".
+        case auth
     }
 
     let id: Int
     let kind: Kind
     let message: String
     var defaultText = ""
+    var options: [String] = []
 }
 
 /// The find bar's latest result.
@@ -55,6 +68,12 @@ struct FindResult: Equatable {
     private(set) var prompt: PagePrompt?
     /// The result of the last find in page; nil when not finding.
     private(set) var findResult: FindResult?
+    /// Whether the page (a video, usually) fills the screen; the browser
+    /// hides its bars meanwhile. Android only: WebKit plays full-screen
+    /// video in the system player.
+    private(set) var isFullScreen = false
+    /// Whether the page asks sites for their desktop layout.
+    private(set) var isDesktopSite = false
 
     /// A private page keeps nothing (cookies, storage, cache) once closed,
     /// and its tab isn't saved.
@@ -74,6 +93,9 @@ struct FindResult: Equatable {
     /// Where the page's downloads go; nil turns downloads away (the
     /// sign-in page).
     @ObservationIgnored var downloads: Downloads?
+    /// Saved passwords, which the page fills and offers to save to; nil
+    /// leaves logins alone (the sign-in page).
+    @ObservationIgnored var logins: Logins?
     @ObservationIgnored private var promptAnswer: ((Bool, String?) -> Void)?
     @ObservationIgnored private var promptCount = 0
     /// Whether the page has reported a location yet; its first one is a
@@ -170,6 +192,18 @@ struct FindResult: Equatable {
         answer?(accepted, text)
     }
 
+    /// Asks sites for their desktop layout, or back to mobile, and reloads.
+    func setDesktopSite(_ desktop: Bool) {
+        guard desktop != isDesktopSite else { return }
+        isDesktopSite = desktop
+        #if os(Android)
+        gecko?.setDesktopMode(desktop: desktop)
+        #elseif canImport(UIKit)
+        // The content mode applies per navigation (decidePolicyFor below).
+        webKit?.webView.reload()
+        #endif
+    }
+
     /// Ends the page for good when its tab closes.
     func close() {
         answerPrompt(accepted: false)
@@ -220,12 +254,49 @@ struct FindResult: Equatable {
         onOpenWindow?(url)
     }
 
+    fileprivate func didChange(isFullScreen: Bool) {
+        if isFullScreen != self.isFullScreen { self.isFullScreen = isFullScreen }
+    }
+
+    /// A long press on a link or image (Android; WebKit has its own menu).
+    fileprivate func showContextMenu(link: String?, source: String?, isImage: Bool) {
+        var labels: [String] = []
+        var actions: [() -> Void] = []
+        func add(_ label: String, _ action: @escaping () -> Void) {
+            labels.append(label)
+            actions.append(action)
+        }
+        if let link, let url = URL(string: link) {
+            add(isPrivate ? "Open in new private tab" : "Open in new tab") { [weak self] in self?.openWindow(url) }
+            add("Copy link") { Clipboard.copy(link) }
+            add("Share link") { Share.text(link) }
+        }
+        if isImage, let source, let url = URL(string: source) {
+            add("Open image in new tab") { [weak self] in self?.openWindow(url) }
+            if downloads != nil {
+                add("Save image") { [weak self] in self?.download(url) }
+            }
+            add("Copy image link") { Clipboard.copy(source) }
+        }
+        guard !labels.isEmpty else { return }
+        ask(.choice, message: link ?? source ?? "", options: labels) { accepted, text in
+            guard accepted, let index = text.flatMap({ Int($0) }), actions.indices.contains(index) else { return }
+            actions[index]()
+        }
+    }
+
+    private func download(_ url: URL) {
+        #if os(Android)
+        gecko?.download(url: url)
+        #endif
+    }
+
     /// Shows a prompt; `answer` gets the user's reply. One at a time: asking
     /// again before the first is answered dismisses the first.
-    fileprivate func ask(_ kind: PagePrompt.Kind, message: String, defaultText: String = "", answer: @escaping (Bool, String?) -> Void) {
+    func ask(_ kind: PagePrompt.Kind, message: String, defaultText: String = "", options: [String] = [], answer: @escaping (Bool, String?) -> Void) {
         answerPrompt(accepted: false)
         promptCount += 1
-        prompt = PagePrompt(id: promptCount, kind: kind, message: message, defaultText: defaultText)
+        prompt = PagePrompt(id: promptCount, kind: kind, message: message, defaultText: defaultText, options: options)
         promptAnswer = answer
     }
 
@@ -250,7 +321,11 @@ struct FindResult: Equatable {
             onSecurityChange: { [weak self] secure in self?.didChange(isSecure: secure) },
             onOpenWindow: { [weak self] url in self?.openWindow(url) },
             onPrompt: { [weak self] id, kind, message, defaultText in
-                self?.ask(PagePrompt.Kind(rawValue: kind) ?? .alert, message: message, defaultText: defaultText ?? "") { [weak self] accepted, text in
+                let promptKind = PagePrompt.Kind(rawValue: kind) ?? .alert
+                // A choice's options come as lines of the default text.
+                let isChoice = promptKind == .choice
+                let options = isChoice ? (defaultText ?? "").components(separatedBy: "\n") : []
+                self?.ask(promptKind, message: message, defaultText: isChoice ? "" : (defaultText ?? ""), options: options) { [weak self] accepted, text in
                     self?.gecko?.answerPrompt(id: id, accepted: accepted, text: text)
                 }
             },
@@ -264,6 +339,12 @@ struct FindResult: Equatable {
                 } else {
                     self?.downloads?.update(name, progress: Double(percent) / 100)
                 }
+            },
+            usesLogins: logins != nil,
+            onFullScreen: { [weak self] fullScreen in self?.didChange(isFullScreen: fullScreen) },
+            onContextMenu: { [weak self] link, source, type in
+                // ContextElement.TYPE_IMAGE
+                self?.showContextMenu(link: link, source: source, isImage: type == 1)
             })
         gecko = tab
         return tab
@@ -297,6 +378,8 @@ struct FindResult: Equatable {
     /// progress.
     private var downloadNames: [ObjectIdentifier: String] = [:]
     private var downloadProgress: [ObjectIdentifier: NSKeyValueObservation] = [:]
+    /// Fills and saves passwords (LoginForms.swift).
+    private var loginForms: LoginForms?
 
     init(page: WebPage) {
         self.page = page
@@ -304,12 +387,15 @@ struct FindResult: Equatable {
         if page.isPrivate {
             configuration.websiteDataStore = Self.privateDataStore
         }
-        if let trackers = ContentBlocker.shared.ruleList {
-            configuration.userContentController.add(trackers)
+        for rules in ContentBlocker.shared.ruleLists {
+            configuration.userContentController.add(rules)
+        }
+        if let logins = page.logins {
+            loginForms = LoginForms(page: page, logins: logins, controller: configuration.userContentController)
         }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
-        // The tracker list arrives after launch, and the setting can change.
+        // The block lists arrive after launch, and the settings can change.
         NotificationCenter.default.addObserver(self, selector: #selector(trackerRulesChanged), name: ContentBlocker.didChange, object: nil)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -347,8 +433,8 @@ struct FindResult: Equatable {
     @objc private func trackerRulesChanged() {
         let rules = webView.configuration.userContentController
         rules.removeAllContentRuleLists()
-        if let trackers = ContentBlocker.shared.ruleList {
-            rules.add(trackers)
+        for list in ContentBlocker.shared.ruleLists {
+            rules.add(list)
         }
     }
 
@@ -360,15 +446,30 @@ struct FindResult: Equatable {
         page?.didChange(progress: webView.estimatedProgress, isLoading: webView.isLoading)
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
-        if action.targetFrame?.isMainFrame != false, let url = action.request.url, page?.shouldCancel(url) == true {
-            return .cancel
+    /// What WebKit shows itself; any other scheme belongs to another app.
+    private static let webSchemes: Set<String> = ["http", "https", "about", "data", "blob", "file", "javascript"]
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
+        preferences.preferredContentMode = page?.isDesktopSite == true ? .desktop : .mobile
+        guard let url = action.request.url else {
+            return (.allow, preferences)
+        }
+        // Links for other apps (tel:, mailto:, maps, App Store, ...) open
+        // them when tapped; pages don't get to launch apps by themselves.
+        if let scheme = url.scheme?.lowercased(), !Self.webSchemes.contains(scheme) {
+            if action.navigationType == .linkActivated {
+                _ = await UIApplication.shared.open(url)
+            }
+            return (.cancel, preferences)
+        }
+        if action.targetFrame?.isMainFrame != false, page?.shouldCancel(url) == true {
+            return (.cancel, preferences)
         }
         // A link with the download attribute.
         if action.shouldPerformDownload {
-            return page?.downloads == nil ? .cancel : .download
+            return (page?.downloads == nil ? .cancel : .download, preferences)
         }
-        return .allow
+        return (.allow, preferences)
     }
 
     // What WebKit can't show, or a server says is an attachment, downloads.
@@ -442,6 +543,24 @@ struct FindResult: Equatable {
                 continuation.resume(returning: (accepted, text))
             }
         }
+    }
+
+    // HTTP authentication (Basic, Digest): ask for a username and password.
+    func webView(_ webView: WKWebView, respondTo challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        let method = challenge.protectionSpace.authenticationMethod
+        guard method == NSURLAuthenticationMethodHTTPBasic || method == NSURLAuthenticationMethodHTTPDigest else {
+            return (.performDefaultHandling, nil)
+        }
+        let host = challenge.protectionSpace.host
+        let message = challenge.previousFailureCount > 0 ? "That didn't work. Sign in to \(host) again." : "\(host) asks you to sign in."
+        let answer = await ask(.auth, message, defaultText: challenge.proposedCredential?.user ?? "")
+        guard answer.accepted, let text = answer.text else {
+            return (.cancelAuthenticationChallenge, nil)
+        }
+        let parts = text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        let user = parts.first.map(String.init) ?? ""
+        let password = parts.count > 1 ? String(parts[1]) : ""
+        return (.useCredential, URLCredential(user: user, password: password, persistence: .forSession))
     }
 
     // A target=_blank link or window.open: open it as a new tab instead.

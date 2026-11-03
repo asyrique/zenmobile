@@ -19,20 +19,28 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Holds the app-wide models; kept out of the bridged root view so the
 /// Kotlin side never sees them.
 struct RootContent: View {
+    @Environment(\.scenePhase) var scenePhase
     @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
     @State var downloads: Downloads
     @State var places: Places
+    @State var logins: Logins
     @State var browser: BrowserModel
 
     @MainActor init() {
         let downloads = Downloads(directory: Downloads.defaultDirectory())
         let places = Places(path: RootContent.dataDirectory().appendingPathComponent("places.db").path)
+        let logins = Logins(path: RootContent.dataDirectory().appendingPathComponent("logins.db").path)
+        #if os(Android)
+        Logins.connectGecko(logins)
+        #endif
         _downloads = State(initialValue: downloads)
         _places = State(initialValue: places)
+        _logins = State(initialValue: logins)
         _browser = State(initialValue: BrowserModel(
             storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"),
             downloads: downloads,
-            places: places))
+            places: places,
+            logins: logins))
     }
 
     var body: some View {
@@ -43,10 +51,19 @@ struct RootContent: View {
         .environment(browser)
         .environment(downloads)
         .environment(places)
+        .environment(logins)
         .preferredColorScheme(.dark)
         .task {
-            await TrackerBlocking.apply()
+            await ContentBlocking.apply()
+            // Tabs other devices send here open in the background.
+            app.onTabsReceived = { [browser] tabs in browser.receive(tabs) }
+            app.onTabsClosed = { [browser] urls in browser.closeTabs(at: urls) }
             await app.start()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await app.didBecomeActive() }
+            }
         }
     }
 

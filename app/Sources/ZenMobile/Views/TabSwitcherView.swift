@@ -2,9 +2,11 @@ import SwiftUI
 import ZenCore
 
 /// The phone's tabs as paged cards (Arc Search's switcher), opening on the
-/// current one, with the desktop-tabs button bottom-left.
+/// current one, with the desktop-tabs button bottom-left. Tabs are grouped
+/// by Zen Space, with a row of the Spaces above to jump between groups.
 struct TabSwitcherView: View {
     @Environment(BrowserModel.self) var browser
+    @Environment(AppModel.self) var app
     @Environment(\.dismiss) var dismiss
     @State var showDesktopTabs = false
     @State var scrollTarget: UUID?
@@ -17,11 +19,15 @@ struct TabSwitcherView: View {
                     Text("No open tabs").foregroundStyle(.secondary)
                     Spacer()
                 } else {
+                    let groups = browser.tabGroups(spaces: app.spaces?.spaces ?? [])
+                    if groups.count > 1 {
+                        groupBar(groups)
+                    }
                     ScrollViewReader { proxy in
                         ScrollView(.horizontal, showsIndicators: false) {
                             LazyHStack(spacing: 16) {
-                                ForEach(browser.tabs) { tab in
-                                    card(tab)
+                                ForEach(groups.flatMap(\.tabs)) { tab in
+                                    card(tab, group: groups.count > 1 ? groups.first { group in group.tabs.contains { member in member.id == tab.id } } : nil)
                                 }
                             }
                             .padding(24)
@@ -37,6 +43,8 @@ struct TabSwitcherView: View {
                         .onChange(of: scrollTarget) { _, target in
                             if let target {
                                 proxy.scrollTo(target, anchor: .center)
+                                // So tapping the same group again scrolls again.
+                                scrollTarget = nil
                             }
                         }
                     }
@@ -90,7 +98,37 @@ struct TabSwitcherView: View {
         }
     }
 
-    private func card(_ tab: BrowserModel.Tab) -> some View {
+    /// A chip per group; tapping one scrolls to its first tab.
+    private func groupBar(_ groups: [BrowserModel.TabGroup]) -> some View {
+        let current = groups.first { group in group.tabs.contains { member in member.id == browser.selectedTabId } }?.id
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(groups) { group in
+                    Button {
+                        scrollTarget = group.tabs.first?.id
+                    } label: {
+                        HStack(spacing: 6) {
+                            if let emoji = group.emoji {
+                                Text(emoji)
+                            }
+                            Text(group.name).lineLimit(1)
+                            Text("\(group.tabs.count)").foregroundStyle(.secondary)
+                        }
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.primary.opacity(group.id == current ? 0.18 : 0.08)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("tabGroup")
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.top, 8)
+    }
+
+    private func card(_ tab: BrowserModel.Tab, group: BrowserModel.TabGroup?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(tab.title).font(.headline).lineLimit(1)
@@ -109,6 +147,12 @@ struct TabSwitcherView: View {
             }
             .foregroundStyle(.secondary)
             Spacer()
+            if let group {
+                Text([group.emoji, group.name].compactMap { $0 }.joined(separator: " "))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
         .padding()
         .frame(width: 260, height: 420)

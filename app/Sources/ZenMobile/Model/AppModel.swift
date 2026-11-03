@@ -23,6 +23,21 @@ import ZenCore
     private(set) var spaces: ZenSpacesSnapshot?
     private(set) var isSyncing = false
     private(set) var lastSyncError: String?
+    /// The account's other devices that can receive tabs (Send to device).
+    private(set) var sendTabDevices: [Device] = []
+
+    /// A tab another device sent here.
+    struct ReceivedTab {
+        let url: URL
+        let title: String
+        /// The sending device's name, when known.
+        let sender: String?
+    }
+
+    /// Called with tabs other devices sent here, and with the addresses of
+    /// tabs another device asked to close here.
+    @ObservationIgnored var onTabsReceived: (([ReceivedTab]) -> Void)?
+    @ObservationIgnored var onTabsClosed: (([URL]) -> Void)?
 
     private var fxa: FirefoxAccount
     private let tabsStore: TabsStore
@@ -89,6 +104,94 @@ import ZenCore
         await apply(state)
         if case .signedIn = account {
             await sync(reason: .startup)
+        }
+    }
+
+    /// When the app comes back to the foreground: fetch what other devices
+    /// sent (there's no push yet, so this and sync are when it arrives).
+    func didBecomeActive() async {
+        guard case .signedIn = account else { return }
+        await sync(reason: .scheduled)
+    }
+
+    // MARK: Send tab
+
+    func refreshDevices() async {
+        guard case .signedIn = account else {
+            sendTabDevices = []
+            return
+        }
+        let fxa = self.fxa
+        let devices = await Task.detached { (try? fxa.getDevices(ignoreCache: false)) ?? [] }.value
+        sendTabDevices = devices
+            .filter { !$0.isCurrentDevice && $0.capabilities.contains(.sendTab) }
+            .sorted { ($0.lastAccessTime ?? 0) > ($1.lastAccessTime ?? 0) }
+    }
+
+    /// Sends a tab to another device; returns whether it went.
+    func sendTab(_ url: URL, title: String, to device: Device) async -> Bool {
+        let fxa = self.fxa
+        let address = url.absoluteString
+        let deviceId = device.id
+        return await Task.detached {
+            do {
+                try fxa.sendSingleTab(targetDeviceId: deviceId, title: title, url: address, isPrivate: false)
+                return true
+            } catch {
+                logger.error("Sending a tab failed: \(error)")
+                return false
+            }
+        }.value
+    }
+
+    /// Asks another device to close one of its tabs, then syncs so the
+    /// desktop tabs list catches up.
+    func closeRemoteTab(_ url: String, onDeviceNamed name: String, id: String) async -> Bool {
+        // Remote tabs are listed under their FxA device id; fall back to the
+        // name for clients that list them under another id.
+        guard let device = sendTabDevices.first(where: { $0.id == id }) ?? sendTabDevices.first(where: { $0.displayName == name }),
+              device.capabilities.contains(.closeTabs) else {
+            return false
+        }
+        let fxa = self.fxa
+        let deviceId = device.id
+        let closed = await Task.detached {
+            do {
+                if case .ok = try fxa.closeTabs(targetDeviceId: deviceId, urls: [url]) {
+                    return true
+                }
+            } catch {
+                logger.error("Closing a remote tab failed: \(error)")
+            }
+            return false
+        }.value
+        if closed {
+            await sync(reason: .user)
+        }
+        return closed
+    }
+
+    /// Tabs other devices sent here, and tabs they asked to close here.
+    private func pollDeviceCommands() async {
+        let fxa = self.fxa
+        let commands = await Task.detached { (try? fxa.pollDeviceCommands()) ?? [] }.value
+        var received: [ReceivedTab] = []
+        var closed: [URL] = []
+        for command in commands {
+            switch command {
+            case let .tabReceived(sender, payload):
+                if let entry = payload.entries.last, let url = URL(string: entry.url) {
+                    received.append(ReceivedTab(url: url, title: entry.title, sender: sender?.displayName))
+                }
+            case let .tabsClosed(_, payload):
+                closed += payload.urls.compactMap { URL(string: $0) }
+            }
+        }
+        if !received.isEmpty {
+            onTabsReceived?(received)
+        }
+        if !closed.isEmpty {
+            onTabsClosed?(closed)
         }
     }
 
@@ -191,6 +294,10 @@ import ZenCore
         }
         persistAccount()
         reloadLocalData()
+        if case .signedIn = account {
+            await pollDeviceCommands()
+            await refreshDevices()
+        }
     }
 
     private func reloadLocalData() {

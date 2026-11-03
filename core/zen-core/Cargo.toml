@@ -17,6 +17,7 @@ error-support.workspace = true
 fxa-client.workspace = true
 init_rust_components.workspace = true
 interrupt-support.workspace = true
+logins.workspace = true
 parking_lot.workspace = true
 places.workspace = true
 rust-log-forwarder.workspace = true
@@ -28,3 +29,6 @@ url.workspace = true
 viaduct.workspace = true
 viaduct-backend-rust.workspace = true
 zen-spaces = { path = "../zen-spaces" }
+
+[dev-dependencies]
+db-crypto.workspace = true
