@@ -45,8 +45,18 @@ struct RootContent: View {
     }
 
     var body: some View {
-        NavigationStack {
-            BrowserView()
+        ZStack {
+            NavigationStack {
+                BrowserView()
+            }
+            #if os(Android)
+            // Android 13 asks before an app may post notifications (tabs
+            // sent here in the background).
+            if app.isSignedIn {
+                ComposeView { NotificationPermissionComposer() }
+                    .frame(width: 1, height: 1)
+            }
+            #endif
         }
         .environment(app)
         .environment(browser)
@@ -74,16 +84,6 @@ struct RootContent: View {
         .onChange(of: app.isSignedIn) { _, signedIn in
             BackgroundChecks.accountChanged(signedIn: signedIn)
         }
-        #if os(Android)
-        // Android 13 asks before an app may post notifications (tabs sent
-        // here in the background).
-        .background {
-            if app.isSignedIn {
-                ComposeView { NotificationPermissionComposer() }
-                    .frame(width: 1, height: 1)
-            }
-        }
-        #endif
     }
 
     static func dataDirectory() -> URL {

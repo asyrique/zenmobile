@@ -1,4 +1,6 @@
 import Foundation
+// ContentComposer, for the Android permission prompt below.
+import SwiftUI
 #if canImport(BackgroundTasks) && !os(Android)
 import BackgroundTasks
 #endif
