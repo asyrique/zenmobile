@@ -11,6 +11,11 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- Notifications for tabs other devices sent, from a periodic job
+         that survives restarts (SentTabsJob.kt). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- permissions needed for using the internet or an embedded WebKit browser -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> -->
@@ -35,6 +40,29 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- AutoFill for other browsers and apps, from the saved passwords
+             (ZenAutofill.kt). Users turn it on in Android's settings. -->
+        <service
+            android:name="zen.mobile.ZenAutofillService"
+            android:label="Zen"
+            android:exported="true"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/zen_autofill_service" />
+        </service>
+        <activity
+            android:name="zen.mobile.AutofillUnlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <service
+            android:name="zen.mobile.SentTabsJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <!-- Lets other apps open downloaded files (GeckoDownloads.kt). -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -128,6 +128,27 @@ struct TabSwitcherView: View {
         .padding(.top, 8)
     }
 
+    /// The page as it last looked, top-aligned and cropped to the card.
+    @ViewBuilder private func thumbnail(_ page: WebPage) -> some View {
+        if let file = page.thumbnail {
+            AsyncImage(url: file) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .clipped()
+                    .accessibilityLabel(Text("Page preview"))
+                    .accessibilityIdentifier("tabThumbnail")
+            } placeholder: {
+                Color.clear
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        } else {
+            Spacer()
+        }
+    }
+
     private func card(_ tab: BrowserModel.Tab, group: BrowserModel.TabGroup?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -146,7 +167,7 @@ struct TabSwitcherView: View {
                     .font(.footnote)
             }
             .foregroundStyle(.secondary)
-            Spacer()
+            thumbnail(tab.page)
             if let group {
                 Text([group.emoji, group.name].compactMap { $0 }.joined(separator: " "))
                     .font(.footnote)

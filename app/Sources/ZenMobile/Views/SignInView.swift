@@ -47,6 +47,9 @@ struct AccountView: View {
     @AppStorage(ContentBlocking.trackersKey) var blockTrackers = true
     @AppStorage(ContentBlocking.adsKey) var blockAds = false
     @AppStorage(SearchEngine.settingKey) var searchEngine = SearchEngine.duckDuckGo.rawValue
+    @Environment(\.scenePhase) var scenePhase
+    /// Whether Zen is Android's AutoFill service (checked when shown).
+    @State var autofillEnabled = false
 
     var body: some View {
         Form {
@@ -71,6 +74,14 @@ struct AccountView: View {
             Section {
                 NavigationLink("Passwords") { PasswordsView() }
                     .accessibilityIdentifier("passwordsButton")
+                #if os(Android)
+                // Android asks the user to pick the AutoFill service.
+                Button(autofillEnabled ? "AutoFill in other apps: on" : "Use Zen for AutoFill in other apps") {
+                    AndroidAutofillSettings.request()
+                }
+                .disabled(autofillEnabled)
+                .accessibilityIdentifier("autofillSettings")
+                #endif
                 Picker("Search engine", selection: $searchEngine) {
                     ForEach(SearchEngine.allCases) { engine in
                         Text(engine.name).tag(engine.rawValue)
@@ -103,6 +114,15 @@ struct AccountView: View {
             }
         }
         .navigationTitle("Settings")
+        #if os(Android)
+        .onAppear { autofillEnabled = AndroidAutofillSettings.isEnabled() }
+        // Back from Android's settings, where the user may have chosen Zen.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                autofillEnabled = AndroidAutofillSettings.isEnabled()
+            }
+        }
+        #endif
     }
 
     private static var privacyFooter: String {

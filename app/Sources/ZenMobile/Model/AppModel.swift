@@ -19,6 +19,11 @@ import ZenCore
     }
 
     private(set) var account: AccountState = .signedOut
+
+    var isSignedIn: Bool {
+        if case .signedIn = account { return true }
+        return false
+    }
     private(set) var desktopTabs: [ClientRemoteTabs] = []
     private(set) var spaces: ZenSpacesSnapshot?
     private(set) var isSyncing = false
@@ -26,8 +31,11 @@ import ZenCore
     /// The account's other devices that can receive tabs (Send to device).
     private(set) var sendTabDevices: [Device] = []
 
+    /// The app's one model: the UI and background checks share it.
+    static let shared = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
+
     /// A tab another device sent here.
-    struct ReceivedTab {
+    struct ReceivedTab: Codable {
         let url: URL
         let title: String
         /// The sending device's name, when known.
@@ -99,11 +107,54 @@ import ZenCore
     // MARK: Account
 
     func start() async {
-        let device = zenDeviceConfig(name: deviceName)
-        let state = await run { try $0.processEvent(event: .initialize(deviceConfig: device)) }
-        await apply(state)
+        await prepareAccount()
         if case .signedIn = account {
             await sync(reason: .startup)
+        }
+    }
+
+    /// Restores the account's state once, for the UI or a background check,
+    /// whichever comes first.
+    @ObservationIgnored private var preparing: Task<Void, Never>?
+
+    private func prepareAccount() async {
+        if let preparing {
+            await preparing.value
+            return
+        }
+        let device = zenDeviceConfig(name: deviceName)
+        let task = Task {
+            let state = await run { try $0.processEvent(event: .initialize(deviceConfig: device)) }
+            await apply(state)
+        }
+        preparing = task
+        await task.value
+    }
+
+    /// A check from the background (iOS background refresh, an Android
+    /// job): the tabs other devices sent since the last look. No full sync.
+    func checkForSentTabs() async -> [ReceivedTab] {
+        await prepareAccount()
+        guard case .signedIn = account else { return [] }
+        return await pollDeviceCommands()
+    }
+
+    /// While the app is in the foreground, look for sent tabs every minute
+    /// (there's no push: see ADR 0008).
+    @ObservationIgnored private var foregroundChecks: Task<Void, Never>?
+
+    func setInForeground(_ inForeground: Bool) {
+        foregroundChecks?.cancel()
+        foregroundChecks = nil
+        guard inForeground else { return }
+        foregroundChecks = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard let model = self, !Task.isCancelled else { return }
+                if case .signedIn = model.account, !model.isSyncing {
+                    await model.pollDeviceCommands()
+                }
+            }
         }
     }
 
@@ -172,7 +223,10 @@ import ZenCore
     }
 
     /// Tabs other devices sent here, and tabs they asked to close here.
-    private func pollDeviceCommands() async {
+    /// Received tabs go to the browser, or wait in the inbox for it when
+    /// it isn't running (a background check).
+    @discardableResult
+    private func pollDeviceCommands() async -> [ReceivedTab] {
         let fxa = self.fxa
         let commands = await Task.detached { (try? fxa.pollDeviceCommands()) ?? [] }.value
         var received: [ReceivedTab] = []
@@ -188,11 +242,16 @@ import ZenCore
             }
         }
         if !received.isEmpty {
-            onTabsReceived?(received)
+            if let onTabsReceived {
+                onTabsReceived(received)
+            } else {
+                SentTabsInbox.append(received)
+            }
         }
         if !closed.isEmpty {
             onTabsClosed?(closed)
         }
+        return received
     }
 
     func beginSignIn() async {
@@ -294,6 +353,8 @@ import ZenCore
         }
         persistAccount()
         reloadLocalData()
+        // Synced passwords show up in iOS AutoFill's suggestions.
+        Logins.shared.updateAutofillIdentities()
         if case .signedIn = account {
             await pollDeviceCommands()
             await refreshDevices()
@@ -305,5 +366,34 @@ import ZenCore
             .filter { !$0.remoteTabs.isEmpty }
             .sorted { $0.lastModified > $1.lastModified }
         spaces = try? spacesStore.snapshot()
+    }
+}
+
+/// Tabs that arrived while the browser wasn't running (a background
+/// check), kept for it to open at its next start.
+enum SentTabsInbox {
+    private static var file: URL {
+        RootContent.dataDirectory().appendingPathComponent("received-tabs.json")
+    }
+
+    static func append(_ tabs: [AppModel.ReceivedTab]) {
+        let all = read() + tabs
+        do {
+            try JSONEncoder().encode(all).write(to: file, options: .atomic)
+        } catch {
+            logger.error("Keeping received tabs failed: \(error)")
+        }
+    }
+
+    /// The waiting tabs, emptying the inbox.
+    static func take() -> [AppModel.ReceivedTab] {
+        let all = read()
+        try? FileManager.default.removeItem(at: file)
+        return all
+    }
+
+    private static func read() -> [AppModel.ReceivedTab] {
+        guard let data = try? Data(contentsOf: file) else { return [] }
+        return (try? JSONDecoder().decode([AppModel.ReceivedTab].self, from: data)) ?? []
     }
 }

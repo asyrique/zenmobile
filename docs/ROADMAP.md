@@ -66,7 +66,10 @@ real UI.
       A Library (Bookmarks by folder, History, Downloads).
 - [x] Send tab both ways and close tabs remotely (FxA device commands). Received tabs
       arrive on each sync and when the app comes to the foreground.
-- [ ] Instant delivery of sent tabs via push (APNs/FCM through Mozilla's push service).
+- [x] Sent tabs found within a minute while the app is open, and in the background by
+      iOS background refresh and an Android job, with a notification.
+      [ADR 0008](decisions/0008-sent-tab-delivery.md) explains why there's no push.
+- [ ] Instant delivery by push: needs Mozilla to register our APNs/FCM credentials.
 - [x] Tracker blocking, on by default: GeckoView's Enhanced Tracking Protection on
       Android; a WKContentRuleList built from EasyPrivacy on iOS.
 - [x] Ad blocking, opt-in: uBlock Origin from addons.mozilla.org in GeckoView; EasyList's
@@ -79,7 +82,11 @@ real UI.
 - [x] Logins (application-services `logins`), synced: saved and filled in the browser
       (Gecko's login manager on Android, a script on iOS), and Settings → Passwords behind
       the screen lock. See [ADR 0007](decisions/0007-logins.md).
-- [ ] System AutoFill (iOS credential provider extension, Android AutofillService).
+- [x] Android AutoFill service: fills other browsers and apps (verified by Digital Asset
+      Links) after the screen lock.
+- [x] iOS AutoFill credential provider extension, sharing the logins through an App Group
+      and Keychain group.
+- [x] Tab thumbnails on the switcher's cards.
 
 ## M4 — Write-back (risky; needs a test harness first)
 

@@ -4,5 +4,15 @@
 <dict>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
+    <!-- Background app refresh looks for tabs other devices sent
+         (BackgroundChecks.swift). -->
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>io.github.asyrique.zenmobile.sentTabs</string>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+    </array>
 </dict>
 </plist>

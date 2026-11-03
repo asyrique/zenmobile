@@ -53,6 +53,17 @@ internal object Clipboards {
     }
 }
 
+/** Whether Zen is the system's AutoFill service, and asking to make it so. */
+internal object AutofillSettings {
+    fun isEnabled(context: Context): Boolean =
+        context.getSystemService(android.view.autofill.AutofillManager::class.java)?.hasEnabledAutofillServices() == true
+
+    fun request(context: Context) {
+        val intent = Intent(android.provider.Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE, Uri.parse("package:${context.packageName}"))
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
 internal object Sharing {
     /** The share sheet, for a link or text. */
     fun share(context: Context, text: String) {

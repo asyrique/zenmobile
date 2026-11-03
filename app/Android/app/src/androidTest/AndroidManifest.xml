@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- A sign-in form standing in for another browser (AutofillTest).
+             Exported: the test APK is its own app, and the test starts it
+             from the browser's process. -->
+        <activity
+            android:name="zen.mobile.e2e.AutofillTestActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    </application>
+</manifest>

@@ -20,7 +20,7 @@ let logger: Logger = Logger(subsystem: "io.github.asyrique.zenmobile", category:
 /// Kotlin side never sees them.
 struct RootContent: View {
     @Environment(\.scenePhase) var scenePhase
-    @State var app = AppModel(dataDirectory: RootContent.dataDirectory(), deviceName: "Zen Mobile")
+    @State var app = AppModel.shared
     @State var downloads: Downloads
     @State var places: Places
     @State var logins: Logins
@@ -29,7 +29,7 @@ struct RootContent: View {
     @MainActor init() {
         let downloads = Downloads(directory: Downloads.defaultDirectory())
         let places = Places(path: RootContent.dataDirectory().appendingPathComponent("places.db").path)
-        let logins = Logins(path: RootContent.dataDirectory().appendingPathComponent("logins.db").path)
+        let logins = Logins.shared
         #if os(Android)
         Logins.connectGecko(logins)
         #endif
@@ -40,12 +40,23 @@ struct RootContent: View {
             storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"),
             downloads: downloads,
             places: places,
-            logins: logins))
+            logins: logins,
+            thumbnailsDirectory: URL.cachesDirectory.appendingPathComponent("thumbnails", isDirectory: true)))
     }
 
     var body: some View {
-        NavigationStack {
-            BrowserView()
+        ZStack {
+            NavigationStack {
+                BrowserView()
+            }
+            #if os(Android)
+            // Android 13 asks before an app may post notifications (tabs
+            // sent here in the background).
+            if app.isSignedIn {
+                ComposeView { NotificationPermissionComposer() }
+                    .frame(width: 1, height: 1)
+            }
+            #endif
         }
         .environment(app)
         .environment(browser)
@@ -59,11 +70,19 @@ struct RootContent: View {
             app.onTabsReceived = { [browser] tabs in browser.receive(tabs) }
             app.onTabsClosed = { [browser] urls in browser.closeTabs(at: urls) }
             await app.start()
+            app.setInForeground(true)
+            BackgroundChecks.accountChanged(signedIn: app.isSignedIn)
         }
         .onChange(of: scenePhase) { _, phase in
+            app.setInForeground(phase == .active)
             if phase == .active {
                 Task { await app.didBecomeActive() }
+            } else if phase == .background, app.isSignedIn {
+                BackgroundChecks.schedule()
             }
+        }
+        .onChange(of: app.isSignedIn) { _, signedIn in
+            BackgroundChecks.accountChanged(signedIn: signedIn)
         }
     }
 
@@ -85,6 +104,8 @@ struct RootContent: View {
 
     /* SKIP @bridge */public func onInit() {
         logger.debug("onInit")
+        // iOS needs background tasks registered before launch finishes.
+        MainActor.assumeIsolated { BackgroundChecks.register() }
     }
 
     /* SKIP @bridge */public func onLaunch() {

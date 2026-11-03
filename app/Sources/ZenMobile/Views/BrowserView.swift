@@ -47,7 +47,13 @@ struct BrowserView: View {
                     }
                     BottomBar(
                         tabCount: browser.tabs.count,
-                        onTabs: { showTabs = true },
+                        onTabs: {
+                            // The card shows the page as it was just now.
+                            if let page = browser.selectedTab?.page {
+                                Task { await page.captureThumbnail() }
+                            }
+                            showTabs = true
+                        },
                         onNewTab: { openAddressBar(editingTab: false) },
                         onSpaces: { showSpaces = true })
                 }

@@ -48,8 +48,22 @@ The two engines differ:
    confirm-credential screen on Android. A device without a screen lock has nothing to ask
    for.
 
+6. **AutoFill in other apps** (added 2026-11-03):
+   - **Android:** `ZenAutofillService` fills other browsers by the web domain they report.
+     It fills apps only when a site's Digital Asset Links file vouches for the app
+     (package and signing certificate); package names alone prove nothing. Filling
+     always waits for the screen lock. Web sign-ins are offered for saving.
+   - **iOS:** a credential provider extension (`Darwin/CredentialProvider`). It lists the
+     logins, with the site's first, after Face ID, Touch ID or the passcode. The app
+     tells `ASCredentialIdentityStore` which logins exist (site and username only), so
+     iOS can suggest them above the keyboard.
+   - **Sharing on iOS:** for the extension to read them, the logins database moved into
+     the App Group container (`group.io.github.asyrique.zenmobile`), and its key into the
+     shared Keychain group (`<team>.io.github.asyrique.zenmobile.shared`). A key saved
+     before that is copied over before the old one is removed.
+   - **Device builds:** signing for a device needs a team with the App Group, the Keychain
+     group and the AutoFill capability enabled. Xcode's automatic signing sets these up.
+
 ## Not yet
 
-- The system AutoFill integrations, so other apps can use these passwords: an AutoFill
-  credential provider extension on iOS, and an Android `AutofillService`.
 - Generating passwords, and breach alerts.

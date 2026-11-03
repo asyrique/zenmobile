@@ -44,13 +44,23 @@ import ZenCore
     @ObservationIgnored private let places: Places?
     /// Saved passwords, which pages fill and save to.
     @ObservationIgnored private let logins: Logins?
+    /// Where tab cards' pictures of their pages are kept.
+    @ObservationIgnored private let thumbnailsDirectory: URL?
 
-    init(storeURL: URL? = nil, downloads: Downloads? = nil, places: Places? = nil, logins: Logins? = nil) {
+    init(storeURL: URL? = nil, downloads: Downloads? = nil, places: Places? = nil, logins: Logins? = nil, thumbnailsDirectory: URL? = nil) {
         self.storeURL = storeURL
+        self.thumbnailsDirectory = thumbnailsDirectory
         self.downloads = downloads
         self.places = places
         self.logins = logins
         restore()
+        // Tabs other devices sent while the browser wasn't running.
+        if storeURL != nil {
+            let waiting = SentTabsInbox.take()
+            if !waiting.isEmpty {
+                receive(waiting)
+            }
+        }
     }
 
     /// Opens a tab and shows it. A tab for a pin that's already open shows
@@ -146,6 +156,8 @@ import ZenCore
         let page = WebPage(url: url, title: title, isPrivate: isPrivate)
         page.downloads = downloads
         page.logins = logins
+        // Private pages leave nothing on disk, pictures included.
+        page.thumbnailsDirectory = isPrivate ? nil : thumbnailsDirectory
         // Pages change as the user browses; save each change, so a tab
         // reopens where it was even if the app is killed.
         page.onChange = { [weak self] in self?.save() }
@@ -166,6 +178,8 @@ import ZenCore
         var title: String
         var zenTabId: String?
         var spaceId: String?
+        /// The thumbnail's file name in the thumbnails directory.
+        var thumbnail: String?
     }
 
     private struct SavedTabs: Codable {
@@ -177,7 +191,7 @@ import ZenCore
         guard let storeURL else { return }
         let kept = tabs.filter { !$0.isPrivate }
         let saved = SavedTabs(
-            tabs: kept.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId, spaceId: $0.spaceId) },
+            tabs: kept.map { SavedTab(url: $0.url, title: $0.page.title, zenTabId: $0.zenTabId, spaceId: $0.spaceId, thumbnail: $0.page.thumbnail?.lastPathComponent) },
             selected: kept.firstIndex { $0.id == selectedTabId })
         do {
             try JSONEncoder().encode(saved).write(to: storeURL, options: .atomic)
@@ -193,7 +207,13 @@ import ZenCore
             return
         }
         // Restored pages load when first shown.
-        tabs = saved.tabs.map { Tab(page: makePage(url: $0.url, title: $0.title), zenTabId: $0.zenTabId, spaceId: $0.spaceId) }
+        tabs = saved.tabs.map { saved in
+            let page = makePage(url: saved.url, title: saved.title)
+            if let name = saved.thumbnail, let directory = thumbnailsDirectory {
+                page.restoreThumbnail(directory.appendingPathComponent(name))
+            }
+            return Tab(page: page, zenTabId: saved.zenTabId, spaceId: saved.spaceId)
+        }
         selectedTabId = saved.selected.flatMap { tabs.indices.contains($0) ? tabs[$0].id : nil }
     }
 
