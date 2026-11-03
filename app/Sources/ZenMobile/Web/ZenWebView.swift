@@ -193,6 +193,17 @@ final class GeckoTab {
         session.close()
     }
 
+    /// Saves a JPEG of what the tab shows, `width` pixels wide, to `path`;
+    /// `onDone` gets whether it worked (a tab not on screen can't be
+    /// pictured).
+    public func captureThumbnail(path: String, width: Int, onDone: @escaping (Bool) -> Void) {
+        guard let view else {
+            onDone(false)
+            return
+        }
+        GeckoThumbnails.capture(view, path, width, onDone)
+    }
+
     public func exitFullScreen() {
         session.exitFullScreen()
     }

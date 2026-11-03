@@ -74,6 +74,11 @@ struct FindResult: Equatable {
     private(set) var isFullScreen = false
     /// Whether the page asks sites for their desktop layout.
     private(set) var isDesktopSite = false
+    /// A picture of the page for the tab switcher (a JPEG file); nil until
+    /// taken.
+    private(set) var thumbnail: URL?
+    /// Where thumbnails are kept; nil takes none (private pages, sign-in).
+    @ObservationIgnored var thumbnailsDirectory: URL?
 
     /// A private page keeps nothing (cookies, storage, cache) once closed,
     /// and its tab isn't saved.
@@ -204,8 +209,57 @@ struct FindResult: Equatable {
         #endif
     }
 
+    /// Takes a picture of the page as it shows now, for its tab card. Only
+    /// a page on screen can be pictured; others keep their last one.
+    func captureThumbnail() async {
+        guard let directory = thumbnailsDirectory else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // A new name each time: image views cache by URL.
+        let file = directory.appendingPathComponent("\(UUID().uuidString).jpg")
+        #if os(Android)
+        guard let gecko else { return }
+        let taken = await withCheckedContinuation { continuation in
+            gecko.captureThumbnail(path: file.path, width: Self.thumbnailWidth) { ok in
+                continuation.resume(returning: ok)
+            }
+        }
+        #elseif canImport(UIKit)
+        guard let webView = webKit?.webView else { return }
+        let configuration = WKSnapshotConfiguration()
+        configuration.snapshotWidth = NSNumber(value: Self.thumbnailWidth)
+        var taken = false
+        if let image = try? await webView.takeSnapshot(configuration: configuration),
+           let data = image.jpegData(compressionQuality: 0.7) {
+            taken = (try? data.write(to: file)) != nil
+        }
+        #else
+        let taken = false
+        #endif
+        guard taken else { return }
+        let previous = thumbnail
+        thumbnail = file
+        if let previous {
+            try? FileManager.default.removeItem(at: previous)
+        }
+        onChange?()
+    }
+
+    /// Shows a picture taken earlier (restoring tabs).
+    func restoreThumbnail(_ file: URL) {
+        if FileManager.default.fileExists(atPath: file.path) {
+            thumbnail = file
+        }
+    }
+
+    /// Points, wide enough for a tab card.
+    private static let thumbnailWidth = 360
+
     /// Ends the page for good when its tab closes.
     func close() {
+        if let thumbnail {
+            try? FileManager.default.removeItem(at: thumbnail)
+            self.thumbnail = nil
+        }
         answerPrompt(accepted: false)
         #if os(Android)
         gecko?.close()

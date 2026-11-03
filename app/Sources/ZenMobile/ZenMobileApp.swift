@@ -40,7 +40,8 @@ struct RootContent: View {
             storeURL: RootContent.dataDirectory().appendingPathComponent("open-tabs.json"),
             downloads: downloads,
             places: places,
-            logins: logins))
+            logins: logins,
+            thumbnailsDirectory: URL.cachesDirectory.appendingPathComponent("thumbnails", isDirectory: true)))
     }
 
     var body: some View {

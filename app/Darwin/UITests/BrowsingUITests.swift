@@ -162,6 +162,8 @@ final class BrowsingUITests: XCTestCase {
         // The title travels WKWebView → KVO → page → tab card.
         element("tabsButton").tap()
         waitFor(app.staticTexts[title], timeout: 30)
+        // The card shows a picture of the page.
+        waitFor(element("tabThumbnail"))
         screenshot("tab-switcher")
         element("tabsDone").tap()
 

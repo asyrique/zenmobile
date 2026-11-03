@@ -205,6 +205,8 @@ class BrowsingTest {
         screenshot("back")
         waitFor(By.res("tabsButton")).click()
         waitFor(By.text(title), 60_000)
+        // The card shows a picture of the page.
+        waitFor(By.res("tabThumbnail"), 30_000)
         screenshot("tab-switcher")
         device.pressBack()
 
