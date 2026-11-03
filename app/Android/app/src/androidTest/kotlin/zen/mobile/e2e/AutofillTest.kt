@@ -80,21 +80,16 @@ class AutofillTest {
 class AutofillTestActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val form = object : LinearLayout(this) {
-            override fun onProvideAutofillStructure(structure: ViewStructure, flags: Int) {
-                super.onProvideAutofillStructure(structure, flags)
-                structure.setWebDomain(DOMAIN)
-            }
-        }
+        val form = LinearLayout(this)
         form.orientation = LinearLayout.VERTICAL
         form.setPadding(48, 200, 48, 48)
-        form.addView(EditText(this).apply {
+        form.addView(WebField(this).apply {
             hint = "Username"
             contentDescription = "testUsername"
             setAutofillHints(View.AUTOFILL_HINT_USERNAME)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         })
-        form.addView(EditText(this).apply {
+        form.addView(WebField(this).apply {
             hint = "Password"
             contentDescription = "testPassword"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -106,5 +101,17 @@ class AutofillTestActivity : Activity() {
 
     companion object {
         const val DOMAIN = "autofill.example"
+    }
+
+    /**
+     * A field that names its page's site, as a browser's web view does for
+     * its form fields. (A plain layout isn't part of what Android sends the
+     * AutoFill service, so the site has to be on the fields.)
+     */
+    class WebField(context: android.content.Context) : EditText(context) {
+        override fun onProvideAutofillStructure(structure: ViewStructure, flags: Int) {
+            super.onProvideAutofillStructure(structure, flags)
+            structure.setWebDomain(DOMAIN)
+        }
     }
 }
