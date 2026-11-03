@@ -53,6 +53,8 @@ class ZenAutofillService : AutofillService() {
     override fun onFillRequest(request: FillRequest, cancellationSignal: CancellationSignal, callback: FillCallback) {
         val structure = request.fillContexts.lastOrNull()?.structure
         val form = structure?.let { AutofillForm.parse(it) }
+        android.util.Log.i(TAG, "Fill request: app ${form?.packageName}, site ${form?.webDomain}, " +
+            "username field ${form?.username != null}, password field ${form?.password != null}")
         if (form == null || form.packageName == packageName || (form.username == null && form.password == null)) {
             callback.onSuccess(null)
             return
@@ -63,7 +65,9 @@ class ZenAutofillService : AutofillService() {
             val host = form.webDomain ?: AssetLinks.verifiedDomain(this, form.packageName)
             main.post {
                 if (cancellationSignal.isCanceled) return@post
-                callback.onSuccess(host?.let { response(form, it) })
+                val response = host?.let { response(form, it) }
+                android.util.Log.i(TAG, "Fill response for $host: ${if (response == null) "none" else "offered"}")
+                callback.onSuccess(response)
             }
         }.start()
     }
@@ -72,8 +76,10 @@ class ZenAutofillService : AutofillService() {
         val count = try {
             JSONArray(AutofillLogins.logins(host)).length()
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Reading logins for $host failed", e)
             0
         }
+        android.util.Log.i(TAG, "$count saved logins for $host")
         val builder = FillResponse.Builder()
         var empty = true
         if (count > 0) {
@@ -102,6 +108,8 @@ class ZenAutofillService : AutofillService() {
     }
 
     companion object {
+        const val TAG = "ZenAutofill"
+
         fun presentation(context: Context, text: String): RemoteViews =
             RemoteViews(context.packageName, android.R.layout.simple_list_item_1).apply {
                 setTextViewText(android.R.id.text1, text)
