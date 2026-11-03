@@ -35,6 +35,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- AutoFill for other browsers and apps, from the saved passwords
+             (ZenAutofill.kt). Users turn it on in Android's settings. -->
+        <service
+            android:name="zen.mobile.ZenAutofillService"
+            android:label="Zen"
+            android:exported="true"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/zen_autofill_service" />
+        </service>
+        <activity
+            android:name="zen.mobile.AutofillUnlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <!-- Lets other apps open downloaded files (GeckoDownloads.kt). -->
         <provider
             android:name="androidx.core.content.FileProvider"

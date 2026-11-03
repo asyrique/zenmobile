@@ -23,6 +23,10 @@ import ZenCore
 
     private static let keyName = "io.github.asyrique.zenmobile.logins.key"
 
+    /// The app's one store: the browser and Android's AutoFill service (which
+    /// can run without the browser's UI) share it.
+    static let shared = Logins(path: RootContent.dataDirectory().appendingPathComponent("logins.db").path)
+
     init(path: String) {
         let (store, failure) = Self.open(path: path)
         self.store = store
@@ -32,6 +36,9 @@ import ZenCore
     }
 
     private static func open(path: String) -> (LoginStore?, String?) {
+        // NSS, which encryption needs; the AutoFill service can get here
+        // before anything else has started it.
+        zenInitialize()
         do {
             var isNewKey = false
             let key: String

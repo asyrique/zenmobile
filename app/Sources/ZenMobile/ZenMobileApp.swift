@@ -29,7 +29,7 @@ struct RootContent: View {
     @MainActor init() {
         let downloads = Downloads(directory: Downloads.defaultDirectory())
         let places = Places(path: RootContent.dataDirectory().appendingPathComponent("places.db").path)
-        let logins = Logins(path: RootContent.dataDirectory().appendingPathComponent("logins.db").path)
+        let logins = Logins.shared
         #if os(Android)
         Logins.connectGecko(logins)
         #endif

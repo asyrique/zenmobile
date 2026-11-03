@@ -24,6 +24,17 @@ struct AndroidClipboard {
     }
 }
 
+/// Zen as Android's AutoFill service (ZenAutofill.kt, AndroidSystem.kt).
+struct AndroidAutofillSettings {
+    public static func isEnabled() -> Bool {
+        AutofillSettings.isEnabled(ProcessInfo.processInfo.androidContext)
+    }
+
+    public static func request() {
+        AutofillSettings.request(ProcessInfo.processInfo.androidContext)
+    }
+}
+
 /// The share sheet (AndroidSystem.kt).
 struct AndroidSharing {
     public static func share(text: String) {
