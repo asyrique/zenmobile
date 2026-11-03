@@ -84,7 +84,8 @@ real UI.
       the screen lock. See [ADR 0007](decisions/0007-logins.md).
 - [x] Android AutoFill service: fills other browsers and apps (verified by Digital Asset
       Links) after the screen lock.
-- [ ] iOS AutoFill credential provider extension.
+- [x] iOS AutoFill credential provider extension, sharing the logins through an App Group
+      and Keychain group.
 - [x] Tab thumbnails on the switcher's cards.
 
 ## M4 — Write-back (risky; needs a test harness first)

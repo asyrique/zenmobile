@@ -353,6 +353,8 @@ import ZenCore
         }
         persistAccount()
         reloadLocalData()
+        // Synced passwords show up in iOS AutoFill's suggestions.
+        Logins.shared.updateAutofillIdentities()
         if case .signedIn = account {
             await pollDeviceCommands()
             await refreshDevices()

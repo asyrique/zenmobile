@@ -2,5 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Offers saved passwords to iOS AutoFill (CredentialProvider). -->
+    <key>com.apple.developer.authentication-services.autofill-credential-provider</key>
+    <true/>
+    <!-- The logins database is shared with the AutoFill extension... -->
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.io.github.asyrique.zenmobile</string>
+    </array>
+    <!-- ...and so is the Keychain; the first group is where new items go. -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)io.github.asyrique.zenmobile.shared</string>
+    </array>
 </dict>
 </plist>

@@ -14,6 +14,9 @@
 		496BDBEE2B8A7E9C00C09264 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 496BDBED2B8A7E9C00C09264 /* Localizable.xcstrings */; };
 		499CD43B2AC5B799001AE8D8 /* Main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F90C2B2A52156200F06D93 /* Main.swift */; };
 		499CD4402AC5B799001AE8D8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49F90C2F2A52156300F06D93 /* Assets.xcassets */; };
+		413FDC956D47E511C3CA26D6 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152EA90155CBD82A2704DD8F /* CredentialProviderViewController.swift */; };
+		B362955B4B269793468FDFAA /* ZenCore in Frameworks */ = {isa = PBXBuildFile; productRef = A64CF864CA331CB94EA95193 /* ZenCore */; };
+		B8D099ED6E091759C8160CA3 /* ZenMobileCredentials.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 11FB12BE9B6B5477BCB1E063 /* ZenMobileCredentials.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -23,6 +26,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 499CD4382AC5B799001AE8D8;
 			remoteInfo = "ZenMobile App";
+		};
+		3B39B3A333948D6EA5C49653 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49F90C202A52156200F06D93 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D65E45C6AD338731FD42328;
+			remoteInfo = ZenMobileCredentials;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -36,6 +46,17 @@
 				491F27832DA55B72004926EE /* ZenMobile in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58F0184F75B0EBBFA670B39B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B8D099ED6E091759C8160CA3 /* ZenMobileCredentials.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -56,6 +77,12 @@
 		49F90C312A52156300F06D93 /* Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Entitlements.plist; sourceTree = "<group>"; };
 		E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZenMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F05B0C0875882C0D5C2D5498 /* BrowsingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowsingUITests.swift; sourceTree = "<group>"; };
+		152EA90155CBD82A2704DD8F /* CredentialProviderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialProviderViewController.swift; sourceTree = "<group>"; };
+		BAA00882DC380A4FE0614365 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		898EF6EC8DB83C7DCE195B4D /* Credentials.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Credentials.entitlements; sourceTree = "<group>"; };
+		13B2DC54A53EDC54AFEA3482 /* Credentials.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Credentials.xcconfig; sourceTree = "<group>"; };
+		11FB12BE9B6B5477BCB1E063 /* ZenMobileCredentials.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ZenMobileCredentials.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		94895975FE7018BD6E595A0A /* ZenCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = ZenCore; path = ../../core/swift/ZenCore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +99,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				35D107F266F00C421ABD3EA1 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2CF4BABC54CDD3B9AA100F8E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B362955B4B269793468FDFAA /* ZenCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +127,7 @@
 			children = (
 				496BDBEB2B89A47800C09264 /* ZenMobile.app */,
 				E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */,
+				11FB12BE9B6B5477BCB1E063 /* ZenMobileCredentials.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,7 +148,9 @@
 				496EB72F2A6AE4DE00C1253B /* ZenMobile.xcconfig */,
 				496BDBED2B8A7E9C00C09264 /* Localizable.xcstrings */,
 				493609562A6B7EAE00C401E2 /* ZenMobile */,
+				94895975FE7018BD6E595A0A /* ZenCore */,
 				49F90C2A2A52156200F06D93 /* App */,
+				06351CDBB4E68FACEB247BBF /* CredentialProvider */,
 				49AB54462B066A7E007B79B2 /* SkipStone */,
 				496BDBEC2B89A47800C09264 /* Products */,
 				E7B86291D218D80903BA4AB7 /* Frameworks */,
@@ -148,6 +186,17 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		06351CDBB4E68FACEB247BBF /* CredentialProvider */ = {
+			isa = PBXGroup;
+			children = (
+				152EA90155CBD82A2704DD8F /* CredentialProviderViewController.swift */,
+				BAA00882DC380A4FE0614365 /* Info.plist */,
+				898EF6EC8DB83C7DCE195B4D /* Credentials.entitlements */,
+				13B2DC54A53EDC54AFEA3482 /* Credentials.xcconfig */,
+			);
+			path = CredentialProvider;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -160,10 +209,12 @@
 				499CD43E2AC5B799001AE8D8 /* Resources */,
 				499CD4452AC5B869001AE8D8 /* Run skip gradle */,
 				499CD44A2AC5B9C6001AE8D8 /* Embed Frameworks */,
+				58F0184F75B0EBBFA670B39B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9C08ABCCA677D78706797748 /* PBXTargetDependency */,
 			);
 			name = "ZenMobile App";
 			packageProductDependencies = (
@@ -190,6 +241,26 @@
 			productName = ZenMobileUITests;
 			productReference = E81D18A1AA7FACFF25D8C0E5 /* ZenMobileUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		1D65E45C6AD338731FD42328 /* ZenMobileCredentials */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0932F89031E2780B654A009D /* Build configuration list for PBXNativeTarget "ZenMobileCredentials" */;
+			buildPhases = (
+				A3BCA8B499EC58DB37A659EC /* Sources */,
+				2CF4BABC54CDD3B9AA100F8E /* Frameworks */,
+				F4CEA0904FB38E0B091491F8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZenMobileCredentials;
+			packageProductDependencies = (
+				A64CF864CA331CB94EA95193 /* ZenCore */,
+			);
+			productName = ZenMobileCredentials;
+			productReference = 11FB12BE9B6B5477BCB1E063 /* ZenMobileCredentials.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -219,6 +290,7 @@
 			targets = (
 				499CD4382AC5B799001AE8D8 /* ZenMobile App */,
 				A93B9CF25FB14C4F8B519B50 /* ZenMobileUITests */,
+				1D65E45C6AD338731FD42328 /* ZenMobileCredentials */,
 			);
 		};
 /* End PBXProject section */
@@ -234,6 +306,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EC10EE6887DD4CB4E591CC0B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F4CEA0904FB38E0B091491F8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -281,6 +360,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A3BCA8B499EC58DB37A659EC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				413FDC956D47E511C3CA26D6 /* CredentialProviderViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -289,6 +376,12 @@
 			name = "ZenMobile App";
 			target = 499CD4382AC5B799001AE8D8 /* ZenMobile App */;
 			targetProxy = EBB58673C42E2AE05E598BE8 /* PBXContainerItemProxy */;
+		};
+		9C08ABCCA677D78706797748 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 1D65E45C6AD338731FD42328 /* ZenMobileCredentials */;
+			targetProxy = 3B39B3A333948D6EA5C49653 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -386,6 +479,20 @@
 			};
 			name = Release;
 		};
+		F7F24255D177DB8867BE828C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 13B2DC54A53EDC54AFEA3482 /* Credentials.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		D7A92A6A89B89949DDFC66B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 13B2DC54A53EDC54AFEA3482 /* Credentials.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -416,12 +523,25 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		0932F89031E2780B654A009D /* Build configuration list for PBXNativeTarget "ZenMobileCredentials" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F7F24255D177DB8867BE828C /* Debug */,
+				D7A92A6A89B89949DDFC66B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		491F27812DA55B72004926EE /* ZenMobile */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ZenMobile;
+		};
+		A64CF864CA331CB94EA95193 /* ZenCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ZenCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
